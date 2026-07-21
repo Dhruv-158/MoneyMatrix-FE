@@ -12,11 +12,12 @@ export default function Banks() {
   const dispatch = useDispatch();
   const { list: banks, loading } = useSelector((s) => s.banks);
   const { isInitialized } = useSelector((s) => s.auth);
+  const { lastUpdated } = useSelector((s) => s.transactions);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ bankName: '', accountType: 'savings', currentBalance: '', accountNumberLast4: '', color: '#3b82f6' });
 
-  useEffect(() => { if (isInitialized) dispatch(fetchBanks()); }, [dispatch, isInitialized]);
+  useEffect(() => { if (isInitialized) dispatch(fetchBanks()); }, [dispatch, isInitialized, lastUpdated]);
 
   const totalBalance = banks.reduce((sum, b) => sum + (b.currentBalance || 0), 0);
 

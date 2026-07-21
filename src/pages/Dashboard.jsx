@@ -29,6 +29,7 @@ export default function Dashboard() {
     recentTransactions, analytics, loading
   } = useSelector((s) => s.dashboard);
   const { list: banks } = useSelector((s) => s.banks);
+  const { lastUpdated } = useSelector((s) => s.transactions);
 
   useEffect(() => {
     // Only fetch data after auth is initialized
@@ -36,10 +37,11 @@ export default function Dashboard() {
       dispatch(fetchDashboard());
       dispatch(fetchBanks());
     }
-  }, [dispatch, isInitialized]);
+  }, [dispatch, isInitialized, lastUpdated]);
 
   // Transform analytics for the area chart: [{ type, month, total }] -> [{ month, income, expense }]
   const monthlyTrend = [];
+  // console.log("🚀 ~ Dashboard ~ analytics:", analytics)
   if (analytics?.length) {
     const monthMap = {};
     analytics.forEach((a) => {
@@ -52,6 +54,7 @@ export default function Dashboard() {
       monthlyTrend.push({ month: months[m.month] || m.month, income: m.income, expense: m.expense });
     });
   }
+  // console.log("🚀 ~ Dashboard ~ monthlyTrend:", monthlyTrend)
 
   // Category-wise expenses for pie chart (from analytics)
   const categoryExpenses = analytics?.filter(a => a.type === 'expense').map((a, i) => ({

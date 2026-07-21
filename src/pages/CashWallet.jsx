@@ -13,10 +13,11 @@ export default function CashWallet() {
   const { wallet } = useSelector((s) => s.cash);
   const { items: txns } = useSelector((s) => s.transactions);
   const { isInitialized } = useSelector((s) => s.auth);
+  const { lastUpdated } = useSelector((s) => s.transactions);
   const [editOpen, setEditOpen] = useState(false);
   const [balance, setBalance] = useState('');
 
-  useEffect(() => { if (isInitialized) { dispatch(fetchCashWallet()); dispatch(fetchTransactions({ limit: 50 })); } }, [dispatch, isInitialized]);
+  useEffect(() => { if (isInitialized) { dispatch(fetchCashWallet()); dispatch(fetchTransactions({ limit: 50 })); } }, [dispatch, isInitialized, lastUpdated]);
 
   const cashTxns = txns.filter(t => t.paymentMethod === 'cash' || t.transferType?.includes('cash'));
 
@@ -37,12 +38,13 @@ export default function CashWallet() {
           {cashTxns.length ? cashTxns.slice(0, 15).map(tx => (
             <div key={tx._id} className="flex items-center justify-between px-4 py-3 hover:bg-white/[0.02]">
               <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tx.type === 'income' ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
-                  {tx.type === 'income' ? <ArrowUpRight className="w-4 h-4 text-emerald-400" /> : <ArrowDownRight className="w-4 h-4 text-red-400" />}
+                {console.log(tx.type)}
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tx.type === 'income' || tx.type === 'transfer' ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+                  {tx.type === 'income' || tx.type === 'transfer' ? <ArrowUpRight className="w-4 h-4 text-emerald-400" /> : <ArrowDownRight className="w-4 h-4 text-red-400" />}
                 </div>
                 <div><p className="text-sm font-medium text-white">{tx.note || tx.type}</p><p className="text-xs text-slate-500">{formatDate(tx.date)}</p></div>
               </div>
-              <p className={`text-sm font-semibold ${tx.type === 'income' ? 'text-emerald-400' : 'text-red-400'}`}>{tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}</p>
+              <p className={`text-sm font-semibold ${tx.type === 'income' || tx.type === 'transfer' ? 'text-emerald-400' : 'text-red-400'}`}>{tx.type === 'income' || tx.type === 'transfer' ? '+' : '-'}{formatCurrency(tx.amount)}</p>
             </div>
           )) : <div className="py-12 text-center"><p className="text-sm text-slate-500">No cash transactions.</p></div>}
         </div>

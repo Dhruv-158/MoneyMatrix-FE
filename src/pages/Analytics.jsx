@@ -10,9 +10,10 @@ export default function Analytics() {
   const dispatch = useDispatch();
   const { data, loading } = useSelector((s) => s.reports);
   const { isInitialized } = useSelector((s) => s.auth);
+  const { lastUpdated } = useSelector((s) => s.transactions);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-  useEffect(() => { if (isInitialized) dispatch(fetchReport({ type: 'monthly', params: { date } })); }, [dispatch, isInitialized, date]);
+  useEffect(() => { if (isInitialized) dispatch(fetchReport({ type: 'monthly', params: { date } })); }, [dispatch, isInitialized, date, lastUpdated]);
 
   const categoryWise = (data?.categoryWiseExpenses || []).map((c, i) => ({ name: c.category || 'Unknown', value: c.total, color: CHART_COLORS[i % CHART_COLORS.length] }));
   const bankWise = (data?.bankWiseExpenses || []).map((b, i) => ({ name: b.bankName || 'Unknown', value: b.total, color: CHART_COLORS[i % CHART_COLORS.length] }));

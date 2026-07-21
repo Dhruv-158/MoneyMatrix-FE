@@ -16,6 +16,7 @@ export default function Reports() {
   const dispatch = useDispatch();
   const { activeTab, data, loading } = useSelector((s) => s.reports);
   const { isInitialized } = useSelector((s) => s.auth);
+  const { lastUpdated } = useSelector((s) => s.transactions);
   const { totalBalance, cashBalance, totalBankBalance } = useSelector((s) => s.dashboard);
   
   // Get today's date in YYYY-MM-DD format
@@ -41,7 +42,7 @@ export default function Reports() {
       const dateParam = getDateParam();
       dispatch(fetchReport({ type: activeTab, params: { date: dateParam } })); 
     }
-  }, [dispatch, isInitialized, activeTab, dailyDate, monthlyDate, yearlyDate]);
+  }, [dispatch, isInitialized, activeTab, dailyDate, monthlyDate, yearlyDate, lastUpdated]);
 
   const handleDownloadPdf = async () => {
     try {
