@@ -32,6 +32,7 @@ const dashboardSlice = createSlice({
       .addCase(fetchDashboard.fulfilled, (state, action) => {
         state.loading = false;
         const d = action.payload;
+        // console.log("🚀 ~ dashboardSlice ~ fetchDashboard.fulfilled ~ d:", d)
         state.totalBalance = d.totalBalance || 0;
         state.cashBalance = d.cashBalance || 0;
         state.totalBankBalance = d.totalBankBalance || 0;

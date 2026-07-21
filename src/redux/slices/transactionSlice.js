@@ -30,6 +30,7 @@ const transactionSlice = createSlice({
     limit: 10,
     loading: false,
     error: null,
+    lastUpdated: null,
   },
   reducers: {
     setPage: (state, action) => { state.page = action.payload; },
@@ -48,6 +49,7 @@ const transactionSlice = createSlice({
       .addCase(createTransaction.fulfilled, (state, action) => {
         state.items.unshift(action.payload);
         state.total += 1;
+        state.lastUpdated = Date.now();
       });
   },
 });
