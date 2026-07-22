@@ -5,7 +5,8 @@ import { fetchTransactions, setPage } from '@/redux/slices/transactionSlice';
 import { fetchBanks } from '@/redux/slices/bankSlice';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import EmptyState from '@/components/ui/EmptyState';
-import { Search, Filter, ArrowUpRight, ArrowDownRight, ArrowLeftRight, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
+import DateFilter from '@/components/ui/DateFilter';
+import { Search, Filter, ArrowUpRight, ArrowDownRight, ArrowLeftRight, ChevronLeft, ChevronRight, Download, FileText, RotateCcw } from 'lucide-react';
 
 export default function Transactions() {
   const dispatch = useDispatch();
@@ -13,12 +14,9 @@ export default function Transactions() {
   const { list: banks } = useSelector((s) => s.banks);
   const { isInitialized } = useSelector((s) => s.auth);
 
-  const todayDate = new Date().toISOString().split('T')[0];
-  const [filters, setFilters] = useState({ type: '', bankId: '', startDate: todayDate, endDate: todayDate, monthYear: '' });
+  const [filters, setFilters] = useState({ type: '', bankId: '', startDate: '', endDate: '', year: '', month: '' });
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [showDateRange, setShowDateRange] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(todayDate);
 
   useEffect(() => {
     // Only fetch data after auth is initialized
@@ -31,13 +29,10 @@ export default function Transactions() {
     const params = { page, limit: 10 };
     if (filters.type) params.type = filters.type;
     if (filters.bankId) params.bankId = filters.bankId;
+    if (filters.year) params.year = filters.year;
+    if (filters.month) params.month = filters.month;
     if (filters.startDate) params.startDate = filters.startDate;
     if (filters.endDate) params.endDate = filters.endDate;
-    if (filters.monthYear) {
-      const [year, month] = filters.monthYear.split('-');
-      params.month = month;
-      params.year = year;
-    }
     dispatch(fetchTransactions(params));
   }, [dispatch, page, filters]);
 
@@ -54,6 +49,22 @@ export default function Transactions() {
     : items;
 
   const inputClass = 'px-3 py-2 rounded-lg bg-card border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition';
+
+  const handleDateApply = (dateFilterData) => {
+    setFilters((prev) => ({
+      ...prev,
+      year: dateFilterData.year || '',
+      month: dateFilterData.month || '',
+      startDate: dateFilterData.startDate || '',
+      endDate: dateFilterData.endDate || '',
+    }));
+    dispatch(setPage(1));
+  };
+
+  const handleResetFilters = () => {
+    setFilters({ type: '', bankId: '', startDate: '', endDate: '', year: '', month: '' });
+    dispatch(setPage(1));
+  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
@@ -75,8 +86,8 @@ export default function Transactions() {
 
       {/* Filters */}
       {showFilters && (
-        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="glass-card p-4 space-y-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="glass-card p-4 space-y-4 relative z-20">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
             <select value={filters.type} onChange={(e) => { setFilters({ ...filters, type: e.target.value }); dispatch(setPage(1)); }} className={inputClass}>
               <option value="">All Types</option>
               <option value="income">Income</option>
@@ -87,41 +98,17 @@ export default function Transactions() {
               <option value="">All Banks</option>
               {banks.map(b => <option key={b._id} value={b._id}>{b.bankName}</option>)}
             </select>
-            <input type="month" value={filters.monthYear} onChange={(e) => { setFilters({ ...filters, monthYear: e.target.value }); dispatch(setPage(1)); }} className={inputClass} placeholder="Select Month" />
-            <button 
-              onClick={() => setShowDateRange(!showDateRange)} 
-              className={`px-3 py-2 rounded-lg border text-sm font-medium transition ${showDateRange ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'border-white/10 text-slate-400 hover:text-white'}`}
+            <button
+              onClick={handleResetFilters}
+              className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-white/10 text-slate-400 hover:text-white text-sm transition"
             >
-              {filters.startDate || filters.endDate ? 'Range ✓' : 'Range'}
+              <RotateCcw className="w-4 h-4" /> Reset All Filters
             </button>
           </div>
 
-          {/* Date Range Picker */}
-          {showDateRange && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
-              <div className="space-y-1">
-                <label className="text-xs text-slate-400">Start Date</label>
-                <input type="date" value={filters.startDate} onChange={(e) => { setFilters({ ...filters, startDate: e.target.value }); dispatch(setPage(1)); }} className={inputClass} />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-slate-400">End Date</label>
-                <input type="date" value={filters.endDate} onChange={(e) => { setFilters({ ...filters, endDate: e.target.value }); dispatch(setPage(1)); }} className={inputClass} />
-              </div>
-            </motion.div>
-          )}
-
-          {/* Calendar View - Specific Date Selector */}
-          <div className="pt-2 border-t border-white/10">
-            <label className="text-xs text-slate-400 mb-2 block">📆 View Specific Date</label>
-            <div className="flex gap-2">
-              <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className={`flex-1 ${inputClass}`} />
-              <button 
-                onClick={() => { setFilters({ ...filters, startDate: selectedDate, endDate: selectedDate, monthYear: '' }); dispatch(setPage(1)); }} 
-                className="px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 text-sm transition font-medium"
-              >
-                View
-              </button>
-            </div>
+          {/* Date Filter Component */}
+          <div>
+            <DateFilter onApply={handleDateApply} />
           </div>
         </motion.div>
       )}
@@ -150,16 +137,41 @@ export default function Transactions() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {typeIcon(tx.type)}
-                          <span className={`capitalize text-xs font-medium ${tx.type === 'income' ? 'text-emerald-400' : tx.type === 'expense' ? 'text-red-400' : 'text-blue-400'}`}>{tx.type}</span>
+                          <div className="flex flex-col">
+                            <span className={`capitalize text-xs font-semibold ${tx.type === 'income' ? 'text-emerald-400' : tx.type === 'expense' ? 'text-red-400' : 'text-blue-400'}`}>
+                              {tx.type}
+                            </span>
+                            {tx.type === 'transfer' && tx.transferType && (
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                {tx.transferType === 'bank_to_cash' ? 'Bank → Cash' : tx.transferType === 'cash_to_bank' ? 'Cash → Bank' : 'Bank → Bank'}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-white">{tx.categoryId?.name || '-'}</td>
-                      <td className="px-4 py-3 text-slate-400">{tx.bankId?.bankName || (tx.paymentMethod === 'cash' ? 'Cash' : '-')}</td>
-                      <td className={`px-4 py-3 text-right font-semibold ${tx.type === 'income' ? 'text-emerald-400' : tx.type === 'expense' ? 'text-red-400' : 'text-blue-400'}`}>
-                        {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}{formatCurrency(tx.amount)}
+                      <td className="px-4 py-3 text-white">{tx.categoryId?.name || (tx.type === 'transfer' ? 'Transfer' : '-')}</td>
+                      <td className="px-4 py-3 text-slate-300">
+                        {tx.type === 'transfer' ? (
+                          <div className="text-xs">
+                            {tx.transferType === 'bank_to_cash' && (
+                              <span><strong className="text-red-400">{tx.fromBankId?.bankName || 'Bank'}</strong> → <span className="text-emerald-400">Cash</span></span>
+                            )}
+                            {tx.transferType === 'cash_to_bank' && (
+                              <span><span className="text-red-400">Cash</span> → <strong className="text-emerald-400">{tx.toBankId?.bankName || 'Bank'}</strong></span>
+                            )}
+                            {tx.transferType === 'bank_to_bank' && (
+                              <span><strong className="text-red-400">{tx.fromBankId?.bankName || 'Bank'}</strong> → <strong className="text-emerald-400">{tx.toBankId?.bankName || 'Bank'}</strong></span>
+                            )}
+                          </div>
+                        ) : (
+                          tx.bankId?.bankName || (tx.paymentMethod === 'cash' ? 'Cash Wallet' : '-')
+                        )}
                       </td>
-                      <td className="px-4 py-3 text-slate-400">{formatDate(tx.date)}</td>
-                      <td className="px-4 py-3 text-slate-400 truncate max-w-[200px]">{tx.note || '-'}</td>
+                      <td className={`px-4 py-3 text-right font-semibold ${tx.type === 'income' ? 'text-emerald-400' : tx.type === 'expense' ? 'text-red-400' : 'text-blue-400'}`}>
+                        {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : '⇄ '}{formatCurrency(tx.amount)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{formatDate(tx.date)}</td>
+                      <td className="px-4 py-3 text-slate-400 truncate max-w-[220px]">{tx.note || '-'}</td>
                     </tr>
                   ))}
                 </tbody>

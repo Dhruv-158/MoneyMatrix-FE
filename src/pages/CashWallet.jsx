@@ -5,7 +5,7 @@ import { fetchCashWallet, updateCashWallet } from '@/redux/slices/cashSlice';
 import { fetchTransactions } from '@/redux/slices/transactionSlice';
 import StatCard from '@/components/cards/StatCard';
 import { formatCurrency, formatDate } from '@/utils/helpers';
-import { Wallet, ArrowUpRight, ArrowDownRight, Pencil, X } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownRight, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function CashWallet() {
@@ -20,7 +20,7 @@ export default function CashWallet() {
   useEffect(() => { if (isInitialized) { dispatch(fetchCashWallet()); dispatch(fetchTransactions({ limit: 50 })); } }, [dispatch, isInitialized, lastUpdated]);
 
   const cashTxns = txns.filter(t => t.paymentMethod === 'cash' || t.transferType?.includes('cash'));
-
+  console.log("cashTxns ", cashTxns);
   const handleUpdate = async (e) => {
     e.preventDefault();
     try { await dispatch(updateCashWallet(Number(balance))).unwrap(); toast.success('Updated'); setEditOpen(false); } catch (err) { toast.error(err || 'Failed'); }
@@ -39,12 +39,12 @@ export default function CashWallet() {
             <div key={tx._id} className="flex items-center justify-between px-4 py-3 hover:bg-white/[0.02]">
               <div className="flex items-center gap-3">
                 {console.log(tx.type)}
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tx.type === 'income' || tx.type === 'transfer' ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
-                  {tx.type === 'income' || tx.type === 'transfer' ? <ArrowUpRight className="w-4 h-4 text-emerald-400" /> : <ArrowDownRight className="w-4 h-4 text-red-400" />}
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tx.type === 'income' || tx.transferType !== 'cash_to_bank' ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+                  {tx.type === 'income' || tx.transferType !== 'cash_to_bank' ? <ArrowUpRight className="w-4 h-4 text-emerald-400" /> : <ArrowDownRight className="w-4 h-4 text-red-400" />}
                 </div>
                 <div><p className="text-sm font-medium text-white">{tx.note || tx.type}</p><p className="text-xs text-slate-500">{formatDate(tx.date)}</p></div>
               </div>
-              <p className={`text-sm font-semibold ${tx.type === 'income' || tx.type === 'transfer' ? 'text-emerald-400' : 'text-red-400'}`}>{tx.type === 'income' || tx.type === 'transfer' ? '+' : '-'}{formatCurrency(tx.amount)}</p>
+              <p className={`text-sm font-semibold ${tx.type === 'income' || tx.transferType !== 'cash_to_bank' ? 'text-emerald-400' : 'text-red-400'}`}>{tx.type === 'income' || tx.transferType !== 'cash_to_bank' ? '+' : '-'}{formatCurrency(tx.amount)}</p>
             </div>
           )) : <div className="py-12 text-center"><p className="text-sm text-slate-500">No cash transactions.</p></div>}
         </div>

@@ -22,6 +22,7 @@ const dashboardSlice = createSlice({
     savings: 0,
     recentTransactions: [],
     analytics: [],
+    categoryExpenses: [],
     loading: false,
     error: null,
   },
@@ -41,6 +42,7 @@ const dashboardSlice = createSlice({
         state.savings = d.savings || 0;
         state.recentTransactions = d.recentTransactions || [];
         state.analytics = d.analytics || [];
+        state.categoryExpenses = d.categoryExpenses || [];
       })
       .addCase(fetchDashboard.rejected, (state, action) => {
         state.loading = false;
