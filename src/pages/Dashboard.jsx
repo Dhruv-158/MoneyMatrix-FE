@@ -9,7 +9,7 @@ import SkeletonCard from '@/components/ui/SkeletonCard';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { CHART_COLORS } from '@/constants';
 import {
-  Wallet, TrendingUp, TrendingDown, PiggyBank, Building2, Banknote,
+  Wallet, Building2, Banknote,
   ArrowUpRight, ArrowDownRight, ArrowLeftRight
 } from 'lucide-react';
 import {
@@ -25,8 +25,7 @@ export default function Dashboard() {
   const { isInitialized } = useSelector((s) => s.auth);
   const {
     totalBalance, cashBalance, totalBankBalance,
-    monthlyIncome, monthlyExpense, savings,
-    recentTransactions, analytics, loading
+    recentTransactions, analytics, categoryExpenses: rawCategoryExpenses, loading
   } = useSelector((s) => s.dashboard);
   const { list: banks } = useSelector((s) => s.banks);
   const { lastUpdated } = useSelector((s) => s.transactions);
@@ -54,14 +53,32 @@ export default function Dashboard() {
       monthlyTrend.push({ month: months[m.month] || m.month, income: m.income, expense: m.expense });
     });
   }
-  // console.log("🚀 ~ Dashboard ~ monthlyTrend:", monthlyTrend)
 
-  // Category-wise expenses for pie chart (from analytics)
-  const categoryExpenses = analytics?.filter(a => a.type === 'expense').map((a, i) => ({
-    name: `Category ${a.month}`,
-    value: a.total,
-    color: CHART_COLORS[i % CHART_COLORS.length],
-  })) || [];
+  // Category-wise expenses for pie chart (backend aggregated across all monthly expenses)
+  const categoryExpenses = (() => {
+    if (rawCategoryExpenses?.length) {
+      return rawCategoryExpenses.map((c, i) => ({
+        name: c.name,
+        value: c.total,
+        color: CHART_COLORS[i % CHART_COLORS.length],
+      }));
+    }
+    // Fallback: group from recentTransactions if rawCategoryExpenses is empty
+    const catMap = {};
+    if (recentTransactions?.length) {
+      recentTransactions.forEach((tx) => {
+        if (tx.type === 'expense') {
+          const catName = tx.categoryId?.name || (tx.paymentMethod === 'cash' ? 'Cash Expense' : 'Other');
+          catMap[catName] = (catMap[catName] || 0) + (tx.amount || 0);
+        }
+      });
+    }
+    return Object.entries(catMap).map(([name, value], i) => ({
+      name,
+      value,
+      color: CHART_COLORS[i % CHART_COLORS.length],
+    }));
+  })();
 
   const typeIcon = (type) => {
     if (type === 'income') return <ArrowUpRight className="w-4 h-4 text-emerald-400" />;

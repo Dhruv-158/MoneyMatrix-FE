@@ -68,5 +68,5 @@ export const reportService = {
 
 // ─── PDF ─────────────────────────────────────────────
 export const pdfService = {
-  downloadMonthly: (params) => api.get('/pdf/monthly', { params, responseType: 'blob' }),
+  downloadMonthly: (params) => api.get('/pdf/monthly', { params, responseType: 'blob', timeout: 60000 }),
 };

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
+import html2pdf from 'html2pdf.js';
 import { fetchReport, setActiveTab } from '@/redux/slices/reportSlice';
 import { fetchDashboard } from '@/redux/slices/dashboardSlice';
 import StatCard from '@/components/cards/StatCard';
@@ -45,13 +46,28 @@ export default function Reports() {
   }, [dispatch, isInitialized, activeTab, dailyDate, monthlyDate, yearlyDate, lastUpdated]);
 
   const handleDownloadPdf = async () => {
+    const element = document.getElementById('report-content');
+    if (!element) return toast.error('Report content not found');
+
+    const dateParam = getDateParam();
+    const opt = {
+      margin:       [0.3, 0.3, 0.3, 0.3],
+      filename:     `report-${activeTab}-${dateParam}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#0f172a' },
+      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+
+    const loadingToast = toast.loading('Generating PDF...');
     try {
-      const dateParam = getDateParam();
-      const res = await pdfService.downloadMonthly({ date: dateParam });
-      const url = URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a'); a.href = url; a.download = `report-${activeTab}-${dateParam}.pdf`; a.click();
+      await html2pdf().set(opt).from(element).save();
+      toast.dismiss(loadingToast);
       toast.success('PDF downloaded');
-    } catch { toast.error('Failed to download PDF'); }
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      console.error(err);
+      toast.error('Failed to generate PDF');
+    }
   };
 
   const tabs = ['daily', 'monthly', 'yearly'];
@@ -116,14 +132,7 @@ export default function Reports() {
       </div>
 
       {loading ? <div className="py-16 text-center"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" /></div> : (
-        <>
-          {/* Dashboard Values - Current Balance Overview */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <StatCard title="Total Balance" value={totalBalance} icon={Wallet} color="blue" />
-            <StatCard title="Cash Balance" value={cashBalance} icon={Banknote} color="cyan" />
-            <StatCard title="Bank Balance" value={totalBankBalance} icon={Building2} color="purple" />
-          </div>
-
+        <div id="report-content" className="space-y-6 p-4 rounded-xl bg-slate-900/60 border border-white/5">
           {/* Summary Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard title="Income" value={summary.income} icon={TrendingUp} color="green" />
@@ -132,23 +141,27 @@ export default function Reports() {
             <StatCard title="Net Savings" value={data?.netSavings || 0} icon={PiggyBank} color="amber" />
           </div>
 
-          {/* Cash Balance - Prominent Display */}
+          {/* Cash Flow Overview - Cash Inflow vs Outflow */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 border border-cyan-500/20 bg-gradient-to-br from-cyan-500/5 to-transparent">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-400 mb-2">💰 Cash Balance</p>
+                <p className="text-sm text-slate-400 mb-1">💵 Cash Wallet Overview</p>
                 <p className="text-3xl font-bold text-cyan-400">{formatCurrency(data?.cashBalance || 0)}</p>
               </div>
               <Wallet className="w-12 h-12 text-cyan-400/30" />
             </div>
-            <div className="mt-4 flex gap-4 text-sm">
+            <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-white/10 text-sm">
               <div>
-                <p className="text-slate-500">Cash Expenses</p>
-                <p className="text-amber-400 font-semibold">{formatCurrency(data?.cashExpenses || 0)}</p>
+                <p className="text-xs text-slate-400 uppercase font-semibold">Cash Inflow (From Bank)</p>
+                <p className="text-emerald-400 font-bold text-base mt-0.5">+{formatCurrency(data?.cashWithdrawals || 0)}</p>
               </div>
               <div>
-                <p className="text-slate-500">Bank Transfers</p>
-                <p className="text-purple-400 font-semibold">{formatCurrency(data?.transfers || 0)}</p>
+                <p className="text-xs text-slate-400 uppercase font-semibold">Cash Outflow (Expenses)</p>
+                <p className="text-red-400 font-bold text-base mt-0.5">-{formatCurrency(data?.cashExpenses || 0)}</p>
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <p className="text-xs text-slate-400 uppercase font-semibold">Total Transfers Activity</p>
+                <p className="text-blue-400 font-bold text-base mt-0.5">{formatCurrency(data?.transfers || 0)}</p>
               </div>
             </div>
           </motion.div>
@@ -176,14 +189,22 @@ export default function Reports() {
             </div>
           </motion.div>
 
-          {/* Bank-wise Expenses Chart */}
+          {/* Bank-wise Expenses Chart (Horizontal Bar Chart) */}
           <ChartCard title="Bank-wise Expenses">
             {bankWise.length ? (
-              <ResponsiveContainer width="100%" height={280}><BarChart data={bankWise}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" /><XAxis dataKey="name" stroke="#64748b" fontSize={11} /><YAxis stroke="#64748b" fontSize={11} /><Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: 12 }} formatter={(value) => formatCurrency(value)} /><Bar dataKey="value" fill="#3b82f6" radius={[6,6,0,0]} /></BarChart></ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={Math.max(200, bankWise.length * 60)}>
+                <BarChart layout="vertical" data={bankWise} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                  <XAxis type="number" stroke="#64748b" fontSize={11} tickFormatter={(val) => `₹${val}`} />
+                  <YAxis type="category" dataKey="name" stroke="#64748b" fontSize={12} width={100} />
+                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: 12 }} formatter={(value) => formatCurrency(value)} />
+                  <Bar dataKey="value" fill="#3b82f6" radius={[0, 6, 6, 0]} maxBarSize={32} />
+                </BarChart>
+              </ResponsiveContainer>
             ) : <p className="text-sm text-slate-500 text-center py-12">No data</p>}
           </ChartCard>
 
-          {/* Income vs Expense Line Chart - For Monthly and Yearly */}
+          {/* Income vs Expense Trend - Grouped Bar Chart for sparse dates, LineChart for continuous data */}
           {(activeTab === 'monthly' || activeTab === 'yearly') && data?.dailyBreakdown && data.dailyBreakdown.length > 0 && (
             <ChartCard title="Income vs Expense Trend">
               <div className="mb-4 flex gap-2">
@@ -192,15 +213,27 @@ export default function Reports() {
                 <button onClick={() => setChartFilter('expense')} className={`px-3 py-1 rounded-lg text-sm transition ${chartFilter === 'expense' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-white/5 text-slate-400 border border-white/10 hover:border-white/20'}`}>Expense</button>
               </div>
               <ResponsiveContainer width="100%" height={320}>
-                <LineChart data={data.dailyBreakdown}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="date" stroke="#64748b" fontSize={11} />
-                  <YAxis stroke="#64748b" fontSize={11} />
-                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: 12 }} formatter={(value) => formatCurrency(value)} />
-                  <Legend />
-                  {(chartFilter === 'income' || chartFilter === 'both') && <Line type="monotone" dataKey="income" stroke="#10b981" dot={{ fill: '#10b981', r: 4 }} activeDot={{ r: 6 }} name="Income" />}
-                  {(chartFilter === 'expense' || chartFilter === 'both') && <Line type="monotone" dataKey="expense" stroke="#ef4444" dot={{ fill: '#ef4444', r: 4 }} activeDot={{ r: 6 }} name="Expense" />}
-                </LineChart>
+                {data.dailyBreakdown.length <= 4 ? (
+                  <BarChart data={data.dailyBreakdown} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="date" stroke="#64748b" fontSize={11} />
+                    <YAxis stroke="#64748b" fontSize={11} />
+                    <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: 12 }} formatter={(value) => formatCurrency(value)} />
+                    <Legend />
+                    {(chartFilter === 'income' || chartFilter === 'both') && <Bar dataKey="income" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={40} name="Income" />}
+                    {(chartFilter === 'expense' || chartFilter === 'both') && <Bar dataKey="expense" fill="#ef4444" radius={[6, 6, 0, 0]} maxBarSize={40} name="Expense" />}
+                  </BarChart>
+                ) : (
+                  <LineChart data={data.dailyBreakdown}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="date" stroke="#64748b" fontSize={11} />
+                    <YAxis stroke="#64748b" fontSize={11} />
+                    <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: 12 }} formatter={(value) => formatCurrency(value)} />
+                    <Legend />
+                    {(chartFilter === 'income' || chartFilter === 'both') && <Line type="monotone" dataKey="income" stroke="#10b981" dot={{ fill: '#10b981', r: 4 }} activeDot={{ r: 6 }} name="Income" />}
+                    {(chartFilter === 'expense' || chartFilter === 'both') && <Line type="monotone" dataKey="expense" stroke="#ef4444" dot={{ fill: '#ef4444', r: 4 }} activeDot={{ r: 6 }} name="Expense" />}
+                  </LineChart>
+                )}
               </ResponsiveContainer>
             </ChartCard>
           )}
@@ -235,7 +268,7 @@ export default function Reports() {
               </div>
             </motion.div>
           )}
-        </>
+        </div>
       )}
     </motion.div>
   );

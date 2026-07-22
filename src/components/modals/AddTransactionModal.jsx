@@ -9,8 +9,21 @@ import toast from 'react-hot-toast';
 
 export default function AddTransactionModal({ open, onClose }) {
   const dispatch = useDispatch();
-  const { list: banks } = useSelector((s) => s.banks);
-  const { list: categories } = useSelector((s) => s.categories);
+  const bankSlice = useSelector((s) => s.banks);
+  const categorySlice = useSelector((s) => s.categories);
+
+  // Safely extract lists regardless of state wrapper shape
+  const banks = Array.isArray(bankSlice?.list)
+    ? bankSlice.list
+    : Array.isArray(bankSlice)
+    ? bankSlice
+    : [];
+
+  const categories = Array.isArray(categorySlice?.list)
+    ? categorySlice.list
+    : Array.isArray(categorySlice)
+    ? categorySlice
+    : [];
 
   const [form, setForm] = useState({
     type: 'expense',
@@ -82,8 +95,14 @@ export default function AddTransactionModal({ open, onClose }) {
     }
   };
 
-  const inputClass = 'w-full px-3 py-2.5 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition';
-  const labelClass = 'text-xs font-medium text-slate-400 mb-1.5 block';
+  const inputClass = 'w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all';
+  const labelClass = 'text-xs font-semibold text-slate-400 mb-1.5 block tracking-wide uppercase';
+
+  const typeColor = {
+    income: 'text-emerald-400',
+    expense: 'text-red-400',
+    transfer: 'text-blue-400',
+  };
 
   return (
     <AnimatePresence>
@@ -93,142 +112,186 @@ export default function AddTransactionModal({ open, onClose }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/70 backdrop-blur-md z-50"
             onClick={onClose}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6"
           >
-            <div className="w-full max-w-md bg-card border border-white/10 rounded-2xl shadow-2xl max-h-[85vh] overflow-y-auto scrollbar-thin">
-              {/* Header */}
-              <div className="flex items-center justify-between p-5 border-b border-white/5">
-                <h2 className="text-lg font-semibold text-white">Add Transaction</h2>
-                <button onClick={onClose} className="text-slate-400 hover:text-white" title="Close">
-                  <X className="w-5 h-5" />
-                </button>
+            <div className="w-full max-w-2xl bg-slate-950 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-slate-900/50 shrink-0">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-bold text-white tracking-wide">Add Transaction</h2>
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-semibold uppercase bg-white/5 border border-white/10 ${typeColor[form.type]}`}>
+                    {form.type}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* Type Selector Pills */}
+                  <div className="flex gap-1 p-1 rounded-xl bg-slate-900 border border-white/10">
+                    {['income', 'expense', 'transfer'].map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setForm({ ...form, type: t })}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all ${
+                          form.type === t
+                            ? t === 'income' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm'
+                              : t === 'expense' ? 'bg-red-500/20 text-red-400 border border-red-500/30 shadow-sm'
+                              : 'bg-blue-500/20 text-blue-400 border border-blue-500/30 shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition" title="Close">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
-              {/* Form */}
-              <form onSubmit={handleSubmit} className="p-5 space-y-4">
-                {/* Type selector */}
-                <div className="flex gap-2">
-                  {['expense', 'income', 'transfer'].map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setForm({ ...form, type: t })}
-                      className={`flex-1 py-2.5 rounded-lg text-sm font-medium capitalize transition-all ${
-                        form.type === t
-                          ? t === 'income' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : t === 'expense' ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                            : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                          : 'bg-background text-slate-400 border border-white/5 hover:border-white/10'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
+              {/* Modal Body / Form */}
+              <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                <div className="p-6 overflow-y-auto space-y-5 flex-1 scrollbar-thin">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Transfer fields */}
+                    {form.type === 'transfer' && (
+                      <>
+                        <div className="sm:col-span-2">
+                          <label className={labelClass}>Transfer Type</label>
+                          <select name="transferType" value={form.transferType} onChange={handleChange} className={inputClass}>
+                            <option value="bank_to_cash">Bank → Cash</option>
+                            <option value="cash_to_bank">Cash → Bank</option>
+                            <option value="bank_to_bank">Bank → Bank</option>
+                          </select>
+                        </div>
 
-                {/* Amount */}
-                <div>
-                  <label className={labelClass}>Amount</label>
-                  <input
-                    type="number"
-                    name="amount"
-                    value={form.amount}
-                    onChange={handleChange}
-                    placeholder="0.00"
-                    className={inputClass}
-                    required
-                    min="1"
-                  />
-                </div>
+                        {(form.transferType === 'bank_to_cash' || form.transferType === 'bank_to_bank') && (
+                          <div>
+                            <label className={labelClass}>From Bank</label>
+                            <select name="fromBankId" value={form.fromBankId} onChange={handleChange} className={inputClass} required>
+                              <option value="">Select bank</option>
+                              {banks.map((b) => <option key={b._id} value={b._id}>{b.bankName}</option>)}
+                            </select>
+                          </div>
+                        )}
 
-                {/* Transfer fields */}
-                {form.type === 'transfer' && (
-                  <>
-                    <div>
-                      <label className={labelClass}>Transfer Type</label>
-                      <select name="transferType" value={form.transferType} onChange={handleChange} className={inputClass}>
-                        <option value="bank_to_cash">Bank → Cash</option>
-                        <option value="cash_to_bank">Cash → Bank</option>
-                        <option value="bank_to_bank">Bank → Bank</option>
-                      </select>
-                    </div>
-                    {(form.transferType === 'bank_to_cash' || form.transferType === 'bank_to_bank') && (
-                      <div>
-                        <label className={labelClass}>From Bank</label>
-                        <select name="fromBankId" value={form.fromBankId} onChange={handleChange} className={inputClass} required>
-                          <option value="">Select bank</option>
-                          {banks.map((b) => <option key={b._id} value={b._id}>{b.bankName}</option>)}
-                        </select>
-                      </div>
+                        {(form.transferType === 'cash_to_bank' || form.transferType === 'bank_to_bank') && (
+                          <div>
+                            <label className={labelClass}>To Bank</label>
+                            <select name="toBankId" value={form.toBankId} onChange={handleChange} className={inputClass} required>
+                              <option value="">Select bank</option>
+                              {banks.map((b) => <option key={b._id} value={b._id}>{b.bankName}</option>)}
+                            </select>
+                          </div>
+                        )}
+
+                        <div>
+                          <label className={labelClass}>Amount</label>
+                          <input
+                            type="number"
+                            name="amount"
+                            value={form.amount}
+                            onChange={handleChange}
+                            placeholder="0.00"
+                            className={inputClass}
+                            required
+                            min="1"
+                          />
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>Date</label>
+                          <input type="date" name="date" value={form.date} onChange={handleChange} className={inputClass} required />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className={labelClass}>Note</label>
+                          <textarea name="note" value={form.note} onChange={handleChange} placeholder="Add an optional description or note..." rows={2} className={inputClass} />
+                        </div>
+                      </>
                     )}
-                    {(form.transferType === 'cash_to_bank' || form.transferType === 'bank_to_bank') && (
-                      <div>
-                        <label className={labelClass}>To Bank</label>
-                        <select name="toBankId" value={form.toBankId} onChange={handleChange} className={inputClass} required>
-                          <option value="">Select bank</option>
-                          {banks.map((b) => <option key={b._id} value={b._id}>{b.bankName}</option>)}
-                        </select>
-                      </div>
-                    )}
-                  </>
-                )}
 
-                {/* Income/Expense fields */}
-                {form.type !== 'transfer' && (
-                  <>
-                    <div>
-                      <label className={labelClass}>Payment Method</label>
-                      <select name="paymentMethod" value={form.paymentMethod} onChange={handleChange} className={inputClass}>
-                        <option value="bank">Bank</option>
-                        <option value="cash">Cash</option>
-                      </select>
-                    </div>
-                    {form.paymentMethod === 'bank' && (
-                      <div>
-                        <label className={labelClass}>Bank</label>
-                        <select name="bankId" value={form.bankId} onChange={handleChange} className={inputClass} required>
-                          <option value="">Select bank</option>
-                          {banks.map((b) => <option key={b._id} value={b._id}>{b.bankName}</option>)}
-                        </select>
-                      </div>
-                    )}
-                    <div>
-                      <label className={labelClass}>Category</label>
-                      <select name="categoryId" value={form.categoryId} onChange={handleChange} className={inputClass}>
-                        <option value="">Select category</option>
-                        {categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
-                      </select>
-                    </div>
-                  </>
-                )}
+                    {/* Income/Expense fields */}
+                    {form.type !== 'transfer' && (
+                      <>
+                        <div>
+                          <label className={labelClass}>Payment Method</label>
+                          <select name="paymentMethod" value={form.paymentMethod} onChange={handleChange} className={inputClass}>
+                            <option value="bank">Bank Account</option>
+                            <option value="cash">Cash Wallet</option>
+                          </select>
+                        </div>
 
-                {/* Date */}
-                <div>
-                  <label className={labelClass}>Date</label>
-                  <input type="date" name="date" value={form.date} onChange={handleChange} className={inputClass} required />
+                        {form.paymentMethod === 'bank' && (
+                          <div>
+                            <label className={labelClass}>Bank Account</label>
+                            <select name="bankId" value={form.bankId} onChange={handleChange} className={inputClass} required>
+                              <option value="">Select bank</option>
+                              {banks.map((b) => <option key={b._id} value={b._id}>{b.bankName}</option>)}
+                            </select>
+                          </div>
+                        )}
+
+                        <div>
+                          <label className={labelClass}>Amount</label>
+                          <input
+                            type="number"
+                            name="amount"
+                            value={form.amount}
+                            onChange={handleChange}
+                            placeholder="0.00"
+                            className={inputClass}
+                            required
+                            min="1"
+                          />
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>Category</label>
+                          <select name="categoryId" value={form.categoryId} onChange={handleChange} className={inputClass}>
+                            <option value="">Select category</option>
+                            {categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={labelClass}>Date</label>
+                          <input type="date" name="date" value={form.date} onChange={handleChange} className={inputClass} required />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className={labelClass}>Note</label>
+                          <textarea name="note" value={form.note} onChange={handleChange} placeholder="Add an optional description or note..." rows={2} className={inputClass} />
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
-                {/* Note */}
-                <div>
-                  <label className={labelClass}>Note</label>
-                  <input type="text" name="note" value={form.note} onChange={handleChange} placeholder="Optional note" className={inputClass} />
+                {/* Footer Action Buttons Bottom Floating */}
+                <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 bg-slate-900/60 shrink-0">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-5 py-2.5 rounded-xl border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 font-semibold text-sm transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-500/25 active:scale-95 disabled:opacity-50"
+                  >
+                    {loading ? 'Creating...' : 'Create Transaction'}
+                  </button>
                 </div>
-
-                {/* Submit */}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-colors disabled:opacity-50"
-                >
-                  {loading ? 'Creating...' : 'Create Transaction'}
-                </button>
               </form>
             </div>
           </motion.div>
