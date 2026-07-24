@@ -12,6 +12,10 @@ import {
   Wallet, Building2, Banknote,
   ArrowUpRight, ArrowDownRight, ArrowLeftRight
 } from 'lucide-react';
+import {
+  ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell,
+  CartesianGrid, XAxis, YAxis, Tooltip
+} from 'recharts';
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 const item = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } };
