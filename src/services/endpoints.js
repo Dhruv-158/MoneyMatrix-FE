@@ -31,6 +31,7 @@ export const cashService = {
 export const transactionService = {
   getAll: (params) => api.get('/transactions', { params }),
   create: (data) => api.post('/transactions', data),
+  settleFriend: (id) => api.patch(`/transactions/${id}/settle-friend`),
 };
 
 // ─── Categories ──────────────────────────────────────

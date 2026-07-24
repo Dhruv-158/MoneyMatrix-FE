@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { fetchDashboard } from '@/redux/slices/dashboardSlice';
 import { fetchBanks } from '@/redux/slices/bankSlice';
 import StatCard from '@/components/cards/StatCard';
-import ChartCard from '@/components/charts/ChartCard';
+import { ChartCard, GlobalAreaChart, GlobalPieChart } from '@/components/charts';
 import SkeletonCard from '@/components/ui/SkeletonCard';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { CHART_COLORS } from '@/constants';
@@ -12,10 +12,6 @@ import {
   Wallet, Building2, Banknote,
   ArrowUpRight, ArrowDownRight, ArrowLeftRight
 } from 'lucide-react';
-import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  AreaChart, Area, XAxis, YAxis, CartesianGrid
-} from 'recharts';
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
@@ -108,49 +104,28 @@ export default function Dashboard() {
         {/* Income vs Expense area chart */}
         <div className="lg:col-span-2">
           <ChartCard title="Income vs Expense">
-            {monthlyTrend.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={monthlyTrend}>
-                  <defs>
-                    <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="month" stroke="#64748b" fontSize={12} />
-                  <YAxis stroke="#64748b" fontSize={12} />
-                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: 12 }} />
-                  <Area type="monotone" dataKey="income" stroke="#22c55e" fill="url(#incomeGrad)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="expense" stroke="#ef4444" fill="url(#expenseGrad)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-sm text-slate-500 text-center py-12">No data yet. Add transactions to see trends.</p>
-            )}
+            <GlobalAreaChart
+              data={monthlyTrend}
+              xKey="month"
+              height={280}
+              series={[
+                { key: 'income', name: 'Income', color: '#22c55e', gradId: 'incomeGrad' },
+                { key: 'expense', name: 'Expense', color: '#ef4444', gradId: 'expenseGrad' },
+              ]}
+              emptyMessage="No data yet. Add transactions to see trends."
+            />
           </ChartCard>
         </div>
 
         {/* Category pie chart */}
         <ChartCard title="Expense by Category">
-          {categoryExpenses.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie data={categoryExpenses} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value">
-                  {categoryExpenses.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: 12 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-sm text-slate-500 text-center py-12">No expense data yet.</p>
-          )}
+          <GlobalPieChart
+            data={categoryExpenses}
+            height={280}
+            innerRadius={60}
+            outerRadius={100}
+            emptyMessage="No expense data yet."
+          />
         </ChartCard>
       </motion.div>
 

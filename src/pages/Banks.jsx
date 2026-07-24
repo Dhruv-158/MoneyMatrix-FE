@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { fetchBanks, createBank, updateBank, deleteBank } from '@/redux/slices/bankSlice';
 import BankCard from '@/components/cards/BankCard';
 import EmptyState from '@/components/ui/EmptyState';
-import { Plus, Building2, X } from 'lucide-react';
+import { Plus, Building2, X, LayoutGrid, List, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '@/utils/helpers';
 
@@ -15,6 +15,7 @@ export default function Banks() {
   const { lastUpdated } = useSelector((s) => s.transactions);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
   const [form, setForm] = useState({ bankName: '', accountType: 'savings', currentBalance: '', accountNumberLast4: '', color: '#3b82f6' });
 
   useEffect(() => { if (isInitialized) dispatch(fetchBanks()); }, [dispatch, isInitialized, lastUpdated]);
@@ -56,25 +57,112 @@ export default function Banks() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <p className="text-xs text-slate-500 uppercase tracking-wider font-medium">Total Bank Balance</p>
           <p className="text-2xl font-bold text-white mt-1">{formatCurrency(totalBalance)}</p>
         </div>
-        <button onClick={() => { setEditing(null); setForm({ bankName: '', accountType: 'savings', currentBalance: '', accountNumberLast4: '', color: '#3b82f6' }); setModalOpen(true); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition">
-          <Plus className="w-4 h-4" /> Add Bank
-        </button>
+
+        <div className="flex items-center gap-3">
+          {/* View Toggle */}
+          <div className="flex items-center gap-1 p-1 bg-slate-900 border border-white/10 rounded-xl">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                viewMode === 'grid'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Grid View"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span className="hidden sm:inline">Grid</span>
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                viewMode === 'table'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Table View"
+            >
+              <List className="w-4 h-4" />
+              <span className="hidden sm:inline">Table</span>
+            </button>
+          </div>
+
+          <button onClick={() => { setEditing(null); setForm({ bankName: '', accountType: 'savings', currentBalance: '', accountNumberLast4: '', color: '#3b82f6' }); setModalOpen(true); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition shadow-lg shadow-blue-500/20 active:scale-95">
+            <Plus className="w-4 h-4" /> Add Bank
+          </button>
+        </div>
       </div>
 
-      {/* Bank cards grid */}
+      {/* Bank Cards or Table */}
       {loading ? (
         <div className="py-16 text-center"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" /></div>
       ) : banks.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {banks.map((bank, i) => (
-            <BankCard key={bank._id} bank={bank} index={i} onEdit={openEdit} onDelete={handleDelete} />
-          ))}
-        </div>
+        viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {banks.map((bank, i) => (
+              <BankCard key={bank._id} bank={bank} index={i} onEdit={openEdit} onDelete={handleDelete} />
+            ))}
+          </div>
+        ) : (
+          <div className="glass-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-900/60 text-xs uppercase tracking-wider text-slate-400 border-b border-white/10">
+                  <tr>
+                    <th className="px-5 py-3">Bank Name</th>
+                    <th className="px-5 py-3">Account Type</th>
+                    <th className="px-5 py-3">Last 4 Digits</th>
+                    <th className="px-5 py-3 text-right">Balance</th>
+                    <th className="px-5 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {banks.map((bank) => (
+                    <tr key={bank._id} className="hover:bg-white/[0.02] transition">
+                      <td className="px-5 py-4 font-semibold text-white">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs text-white shadow-sm"
+                            style={{ backgroundColor: bank.color || '#3b82f6' }}
+                          >
+                            {bank.bankName?.slice(0, 2).toUpperCase()}
+                          </div>
+                          <span>{bank.bankName}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-slate-300 capitalize">{bank.accountType}</td>
+                      <td className="px-5 py-4 text-slate-400 font-mono">•••• {bank.accountNumberLast4 || '----'}</td>
+                      <td className="px-5 py-4 text-right font-bold text-emerald-400">{formatCurrency(bank.currentBalance)}</td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openEdit(bank)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+                            title="Edit Bank"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(bank._id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition"
+                            title="Delete Bank"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
       ) : (
         <EmptyState icon={Building2} title="No banks added" description="Add your bank accounts to start tracking." action={
           <button onClick={() => setModalOpen(true)} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium">Add Bank</button>

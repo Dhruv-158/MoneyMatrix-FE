@@ -10,13 +10,12 @@ export default function DateFilter({ onApply }) {
 
   // 1. Core State
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  
-  // State for single day selection or range state:
-  // range: { from: Date | undefined, to: Date | undefined }
-  // isRangeStarted: boolean (true after 1st double click, waiting for 2nd double click)
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth); // 0-11 or '' for whole year
+  const [displayMonth, setDisplayMonth] = useState(new Date());
+
+  // Date range state
   const [range, setRange] = useState({
-    from: new Date(),
+    from: undefined,
     to: undefined,
   });
   const [isRangeStarted, setIsRangeStarted] = useState(false);
@@ -39,9 +38,6 @@ export default function DateFilter({ onApply }) {
     yearsList.push(y);
   }
 
-  // Month displayed inside the calendar (React Day Picker v9 month prop)
-  const monthToDisplay = new Date(selectedYear, selectedMonth, 1);
-
   // Close calendar popover on click outside
   useEffect(() => {
     function handleClickOutside(event) {
@@ -53,40 +49,60 @@ export default function DateFilter({ onApply }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Direct Year dropdown change handler
+  // 1. Direct Year dropdown change handler:
+  // Automatically clears Month and Day range so user gets whole year data
   const handleYearChange = (e) => {
-    setSelectedYear(Number(e.target.value));
+    const year = Number(e.target.value);
+    setSelectedYear(year);
+    setSelectedMonth(''); // Reset to All Months
+    setRange({ from: undefined, to: undefined }); // Reset DayPicker range
+    setIsRangeStarted(false);
+    setDisplayMonth(new Date(year, 0, 1));
   };
 
-  // Direct Month dropdown change handler
+  // 2. Direct Month dropdown change handler:
+  // Automatically clears Day range so user gets whole month data for that year
   const handleMonthChange = (e) => {
-    setSelectedMonth(Number(e.target.value));
+    const val = e.target.value;
+    if (val === '') {
+      setSelectedMonth('');
+      setRange({ from: undefined, to: undefined });
+      setIsRangeStarted(false);
+      setDisplayMonth(new Date(selectedYear, 0, 1));
+    } else {
+      const monthNum = Number(val);
+      setSelectedMonth(monthNum);
+      setRange({ from: undefined, to: undefined });
+      setIsRangeStarted(false);
+      setDisplayMonth(new Date(selectedYear, monthNum, 1));
+    }
   };
 
   /**
-   * Click Handling with Timer to distinguish Single Click vs Double Click cleanly:
-   * - Single click: selects single date ONLY and clears any range.
-   * - Double click (1st time): starts a range (from = date, to = undefined).
-   * - Double click (2nd time): completes the range (from = earlier, to = later).
+   * 3. Day Click Handling with Automatic Date Range Ordering:
+   * - If user selects 15-8-2025 first and then 30-7-2025 (earlier date),
+   *   it automatically swaps them so from = 30-7-2025 and to = 15-8-2025.
+   * - Automatically updates Year and Month dropdowns to match selected day.
    */
   const handleDayClick = (day) => {
     if (!day) return;
+
+    // Synchronize Year and Month dropdowns automatically
     setSelectedYear(day.getFullYear());
     setSelectedMonth(day.getMonth());
+    setDisplayMonth(new Date(day.getFullYear(), day.getMonth(), 1));
 
     if (clickTimerRef.current) {
-      // Double Click Detected!
       clearTimeout(clickTimerRef.current);
       clickTimerRef.current = null;
 
-      if (!isRangeStarted) {
-        // 1st Double Click: Start Range
+      if (!isRangeStarted || !range.from) {
         setRange({ from: day, to: undefined });
         setIsRangeStarted(true);
       } else {
-        // 2nd Double Click: Complete Range
-        const start = range.from || day;
+        const start = range.from;
         if (isBefore(day, start)) {
+          // Automatic Swap: earlier date becomes 'from', later becomes 'to'
           setRange({ from: day, to: start });
         } else {
           setRange({ from: start, to: day });
@@ -94,25 +110,36 @@ export default function DateFilter({ onApply }) {
         setIsRangeStarted(false);
       }
     } else {
-      // Set timer to wait for possible 2nd click of double click
       clickTimerRef.current = setTimeout(() => {
         clickTimerRef.current = null;
-        // Single Click Confirmed: Select single day only, clear range
-        setRange({ from: day, to: undefined });
-        setIsRangeStarted(false);
-      }, 250);
+        if (!isRangeStarted || !range.from) {
+          setRange({ from: day, to: undefined });
+          setIsRangeStarted(true);
+        } else {
+          const start = range.from;
+          if (isBefore(day, start)) {
+            setRange({ from: day, to: start });
+          } else {
+            setRange({ from: start, to: day });
+          }
+          setIsRangeStarted(false);
+        }
+      }, 220);
     }
   };
 
   // Format string for Day field input
   const formatDayInputValue = () => {
     if (range.from && range.to) {
-      return `${format(range.from, 'dd MMM yyyy')} → ${format(range.to, 'dd MMM yyyy')}`;
+      const [early, late] = isBefore(range.from, range.to)
+        ? [range.from, range.to]
+        : [range.to, range.from];
+      return `${format(early, 'dd MMM yyyy')} → ${format(late, 'dd MMM yyyy')}`;
     }
     if (range.from) {
       return format(range.from, 'dd MMM yyyy');
     }
-    return 'Select Date';
+    return 'Select Date Range';
   };
 
   // Apply Filter Callback
@@ -123,8 +150,11 @@ export default function DateFilter({ onApply }) {
     let endDateFormatted = '';
 
     if (range.from && range.to) {
-      startDateFormatted = format(range.from, 'yyyy-MM-dd');
-      endDateFormatted = format(range.to, 'yyyy-MM-dd');
+      const [earlyDate, lateDate] = isBefore(range.from, range.to)
+        ? [range.from, range.to]
+        : [range.to, range.from];
+      startDateFormatted = format(earlyDate, 'yyyy-MM-dd');
+      endDateFormatted = format(lateDate, 'yyyy-MM-dd');
     } else if (range.from) {
       startDateFormatted = format(range.from, 'yyyy-MM-dd');
       endDateFormatted = format(range.from, 'yyyy-MM-dd');
@@ -132,7 +162,7 @@ export default function DateFilter({ onApply }) {
 
     onApply({
       year: selectedYear,
-      month: selectedMonth + 1, // 1-indexed (1 = Jan)
+      month: selectedMonth !== '' ? selectedMonth + 1 : '',
       startDate: startDateFormatted,
       endDate: endDateFormatted,
     });
@@ -172,6 +202,9 @@ export default function DateFilter({ onApply }) {
               onChange={handleMonthChange}
               className="w-full px-3 py-2 text-sm rounded-lg bg-card border border-white/10 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer pr-8"
             >
+              <option value="" className="bg-slate-900 text-white">
+                All Months (Whole Year)
+              </option>
               {monthsList.map((m, index) => (
                 <option key={m} value={index} className="bg-slate-900 text-white">
                   {m}
@@ -197,11 +230,8 @@ export default function DateFilter({ onApply }) {
           {isOpen && (
             <div className="absolute top-full left-0 mt-2 z-50 p-4 bg-slate-950/95 border border-white/15 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl ring-1 ring-white/10 min-w-[310px]">
               <DayPicker
-                month={monthToDisplay}
-                onMonthChange={(newMonth) => {
-                  setSelectedYear(newMonth.getFullYear());
-                  setSelectedMonth(newMonth.getMonth());
-                }}
+                month={displayMonth}
+                onMonthChange={setDisplayMonth}
                 onDayClick={handleDayClick}
                 startMonth={new Date(2020, 0)}
                 endMonth={new Date(currentYear + 5, 11)}
