@@ -5,12 +5,11 @@ import html2pdf from 'html2pdf.js';
 import { fetchReport, setActiveTab } from '@/redux/slices/reportSlice';
 import { fetchDashboard } from '@/redux/slices/dashboardSlice';
 import StatCard from '@/components/cards/StatCard';
-import ChartCard from '@/components/charts/ChartCard';
+import { ChartCard, GlobalBarChart, GlobalLineChart } from '@/components/charts';
 import { formatCurrency } from '@/utils/helpers';
 import { CHART_COLORS } from '@/constants';
 import { TrendingUp, TrendingDown, PiggyBank, Download, Wallet, Building2, Banknote } from 'lucide-react';
 import { pdfService } from '@/services/endpoints';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
 
 export default function Reports() {
@@ -191,17 +190,14 @@ export default function Reports() {
 
           {/* Bank-wise Expenses Chart (Horizontal Bar Chart) */}
           <ChartCard title="Bank-wise Expenses">
-            {bankWise.length ? (
-              <ResponsiveContainer width="100%" height={Math.max(200, bankWise.length * 60)}>
-                <BarChart layout="vertical" data={bankWise} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                  <XAxis type="number" stroke="#64748b" fontSize={11} tickFormatter={(val) => `₹${val}`} />
-                  <YAxis type="category" dataKey="name" stroke="#64748b" fontSize={12} width={100} />
-                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: 12 }} formatter={(value) => formatCurrency(value)} />
-                  <Bar dataKey="value" fill="#3b82f6" radius={[0, 6, 6, 0]} maxBarSize={32} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <p className="text-sm text-slate-500 text-center py-12">No data</p>}
+            <GlobalBarChart
+              layout="vertical"
+              data={bankWise}
+              xKey="name"
+              height={Math.max(200, bankWise.length * 60)}
+              bars={[{ key: 'value', name: 'Expense', color: '#3b82f6' }]}
+              emptyMessage="No data"
+            />
           </ChartCard>
 
           {/* Income vs Expense Trend - Grouped Bar Chart for sparse dates, LineChart for continuous data */}
@@ -212,29 +208,29 @@ export default function Reports() {
                 <button onClick={() => setChartFilter('income')} className={`px-3 py-1 rounded-lg text-sm transition ${chartFilter === 'income' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-white/5 text-slate-400 border border-white/10 hover:border-white/20'}`}>Income</button>
                 <button onClick={() => setChartFilter('expense')} className={`px-3 py-1 rounded-lg text-sm transition ${chartFilter === 'expense' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-white/5 text-slate-400 border border-white/10 hover:border-white/20'}`}>Expense</button>
               </div>
-              <ResponsiveContainer width="100%" height={320}>
-                {data.dailyBreakdown.length <= 4 ? (
-                  <BarChart data={data.dailyBreakdown} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="date" stroke="#64748b" fontSize={11} />
-                    <YAxis stroke="#64748b" fontSize={11} />
-                    <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: 12 }} formatter={(value) => formatCurrency(value)} />
-                    <Legend />
-                    {(chartFilter === 'income' || chartFilter === 'both') && <Bar dataKey="income" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={40} name="Income" />}
-                    {(chartFilter === 'expense' || chartFilter === 'both') && <Bar dataKey="expense" fill="#ef4444" radius={[6, 6, 0, 0]} maxBarSize={40} name="Expense" />}
-                  </BarChart>
-                ) : (
-                  <LineChart data={data.dailyBreakdown}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="date" stroke="#64748b" fontSize={11} />
-                    <YAxis stroke="#64748b" fontSize={11} />
-                    <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: 12 }} formatter={(value) => formatCurrency(value)} />
-                    <Legend />
-                    {(chartFilter === 'income' || chartFilter === 'both') && <Line type="monotone" dataKey="income" stroke="#10b981" dot={{ fill: '#10b981', r: 4 }} activeDot={{ r: 6 }} name="Income" />}
-                    {(chartFilter === 'expense' || chartFilter === 'both') && <Line type="monotone" dataKey="expense" stroke="#ef4444" dot={{ fill: '#ef4444', r: 4 }} activeDot={{ r: 6 }} name="Expense" />}
-                  </LineChart>
-                )}
-              </ResponsiveContainer>
+              {data.dailyBreakdown.length <= 4 ? (
+                <GlobalBarChart
+                  data={data.dailyBreakdown}
+                  xKey="date"
+                  height={320}
+                  showLegend={true}
+                  bars={[
+                    { key: 'income', name: 'Income', color: '#10b981' },
+                    { key: 'expense', name: 'Expense', color: '#ef4444' },
+                  ].filter((s) => chartFilter === 'both' || chartFilter === s.key)}
+                />
+              ) : (
+                <GlobalLineChart
+                  data={data.dailyBreakdown}
+                  xKey="date"
+                  height={320}
+                  showLegend={true}
+                  series={[
+                    { key: 'income', name: 'Income', color: '#10b981' },
+                    { key: 'expense', name: 'Expense', color: '#ef4444' },
+                  ].filter((s) => chartFilter === 'both' || chartFilter === s.key)}
+                />
+              )}
             </ChartCard>
           )}
 

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { fetchDashboard } from '@/redux/slices/dashboardSlice';
 import { fetchBanks } from '@/redux/slices/bankSlice';
 import StatCard from '@/components/cards/StatCard';
-import ChartCard from '@/components/charts/ChartCard';
+import { ChartCard, GlobalAreaChart, GlobalPieChart } from '@/components/charts';
 import SkeletonCard from '@/components/ui/SkeletonCard';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { CHART_COLORS } from '@/constants';
@@ -12,10 +12,6 @@ import {
   Wallet, Building2, Banknote,
   ArrowUpRight, ArrowDownRight, ArrowLeftRight
 } from 'lucide-react';
-import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  AreaChart, Area, XAxis, YAxis, CartesianGrid
-} from 'recharts';
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 const item = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } };
