@@ -36,6 +36,11 @@ export default function AddTransactionModal({ open, onClose }) {
     transferType: 'bank_to_cash',
     fromBankId: '',
     toBankId: '',
+    friendName: '',
+    friendEmail: '',
+    friendPhone: '',
+    sendNotification: true,
+    autoReminder: true,
   });
   const [loading, setLoading] = useState(false);
 
@@ -46,8 +51,16 @@ export default function AddTransactionModal({ open, onClose }) {
     }
   }, [open, dispatch]);
 
+  const selectedCategory = categories.find((c) => c._id === form.categoryId);
+  const isFriendCategory = selectedCategory?.name
+    ? selectedCategory.name.toLowerCase().includes('friend') ||
+      selectedCategory.name.toLowerCase().includes('lend') ||
+      selectedCategory.name.toLowerCase().includes('borrow')
+    : false;
+
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setForm({ ...form, [e.target.name]: value });
   };
 
   const handleSubmit = async (e) => {
@@ -55,6 +68,13 @@ export default function AddTransactionModal({ open, onClose }) {
     if (!form.amount || Number(form.amount) <= 0) {
       toast.error('Amount must be greater than 0');
       return;
+    }
+
+    if (isFriendCategory) {
+      if (!form.friendName.trim()) {
+        toast.error("Please enter friend's name");
+        return;
+      }
     }
 
     setLoading(true);
@@ -65,6 +85,17 @@ export default function AddTransactionModal({ open, onClose }) {
         note: form.note,
         date: form.date,
       };
+
+      if (isFriendCategory && form.friendName.trim()) {
+        payload.friendDetails = {
+          name: form.friendName.trim(),
+          email: form.friendEmail.trim(),
+          phone: form.friendPhone.trim(),
+          sendNotification: form.sendNotification,
+          autoReminder: form.autoReminder,
+          status: 'pending',
+        };
+      }
 
       if (form.type === 'transfer') {
         payload.transferType = form.transferType;
@@ -87,6 +118,7 @@ export default function AddTransactionModal({ open, onClose }) {
         type: 'expense', paymentMethod: 'bank', bankId: '', categoryId: '',
         amount: '', note: '', date: new Date().toISOString().split('T')[0],
         transferType: 'bank_to_cash', fromBankId: '', toBankId: '',
+        friendName: '', friendEmail: '', friendPhone: '', sendNotification: true, autoReminder: true,
       });
     } catch (err) {
       toast.error(err || 'Failed to create transaction');
@@ -260,6 +292,78 @@ export default function AddTransactionModal({ open, onClose }) {
                             {categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
                           </select>
                         </div>
+
+                        {/* Friend Information Subform Card */}
+                        {isFriendCategory && (
+                          <div className="sm:col-span-2 p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 space-y-3">
+                            <p className="text-xs font-bold text-blue-400 uppercase tracking-wider">
+                              🤝 Friend Details & Automation
+                            </p>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div>
+                                <label className={labelClass}>Friend Name *</label>
+                                <input
+                                  type="text"
+                                  name="friendName"
+                                  value={form.friendName}
+                                  onChange={handleChange}
+                                  placeholder="e.g. Rahul Sharma"
+                                  className={inputClass}
+                                  required={isFriendCategory}
+                                />
+                              </div>
+
+                              <div>
+                                <label className={labelClass}>Friend Email</label>
+                                <input
+                                  type="email"
+                                  name="friendEmail"
+                                  value={form.friendEmail}
+                                  onChange={handleChange}
+                                  placeholder="rahul@example.com"
+                                  className={inputClass}
+                                />
+                              </div>
+
+                              <div>
+                                <label className={labelClass}>WhatsApp / Mobile</label>
+                                <input
+                                  type="text"
+                                  name="friendPhone"
+                                  value={form.friendPhone}
+                                  onChange={handleChange}
+                                  placeholder="+91 9999999999"
+                                  className={inputClass}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="pt-2 flex flex-col sm:flex-row gap-4 text-xs text-slate-300">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  name="sendNotification"
+                                  checked={form.sendNotification}
+                                  onChange={handleChange}
+                                  className="w-4 h-4 rounded border-white/10 bg-slate-900 text-blue-500 focus:ring-blue-500/50"
+                                />
+                                Send immediate email notification
+                              </label>
+
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  name="autoReminder"
+                                  checked={form.autoReminder}
+                                  onChange={handleChange}
+                                  className="w-4 h-4 rounded border-white/10 bg-slate-900 text-blue-500 focus:ring-blue-500/50"
+                                />
+                                Enable monthly automated reminder (1st of month)
+                              </label>
+                            </div>
+                          </div>
+                        )}
 
                         <div>
                           <label className={labelClass}>Date</label>

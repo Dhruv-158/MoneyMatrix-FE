@@ -4,9 +4,11 @@ import { motion } from 'framer-motion';
 import { fetchTransactions, setPage } from '@/redux/slices/transactionSlice';
 import { fetchBanks } from '@/redux/slices/bankSlice';
 import { formatCurrency, formatDate } from '@/utils/helpers';
+import { transactionService } from '@/services/endpoints';
+import toast from 'react-hot-toast';
 import EmptyState from '@/components/ui/EmptyState';
 import DateFilter from '@/components/ui/DateFilter';
-import { Search, Filter, ArrowUpRight, ArrowDownRight, ArrowLeftRight, ChevronLeft, ChevronRight, Download, FileText, RotateCcw } from 'lucide-react';
+import { Search, Filter, ArrowUpRight, ArrowDownRight, ArrowLeftRight, ChevronLeft, ChevronRight, Download, FileText, RotateCcw, CheckCircle } from 'lucide-react';
 
 export default function Transactions() {
   const dispatch = useDispatch();
@@ -37,6 +39,16 @@ export default function Transactions() {
   }, [dispatch, page, filters]);
 
   const totalPages = Math.ceil(total / limit) || 1;
+
+  const handleSettleFriend = async (txId) => {
+    try {
+      await transactionService.settleFriend(txId);
+      toast.success('Marked as Settled! Monthly emails stopped.');
+      dispatch(fetchTransactions({ page, limit: 10, ...filters }));
+    } catch (err) {
+      toast.error('Failed to settle transaction');
+    }
+  };
 
   const typeIcon = (type) => {
     if (type === 'income') return <ArrowUpRight className="w-4 h-4 text-emerald-400" />;
@@ -171,7 +183,29 @@ export default function Transactions() {
                         {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : '⇄ '}{formatCurrency(tx.amount)}
                       </td>
                       <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{formatDate(tx.date)}</td>
-                      <td className="px-4 py-3 text-slate-400 truncate max-w-[220px]">{tx.note || '-'}</td>
+                      <td className="px-4 py-3 text-slate-400 max-w-[260px]">
+                        <p className="truncate text-white text-xs font-medium">{tx.note || '-'}</p>
+                        {tx.friendDetails?.name && (
+                          <div className="mt-1.5 flex items-center gap-2 flex-wrap text-xs">
+                            <span className="text-cyan-400 font-semibold flex items-center gap-1">
+                              🤝 {tx.friendDetails.name}
+                            </span>
+                            {tx.friendDetails.status === 'settled' ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                                🟢 Settled
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleSettleFriend(tx._id)}
+                                className="px-2.5 py-0.5 rounded-full text-[10px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold transition cursor-pointer"
+                                title="Click to mark as Paid Off and stop monthly reminder emails"
+                              >
+                                🟡 Pending (Mark Settled)
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
