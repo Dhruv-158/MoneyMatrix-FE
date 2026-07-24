@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,26 +6,50 @@
 
 @layer base {
   :root {
-    --background: 222 47% 11%;
+    /* Mercury Light Theme */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221 83% 53%;
+    --radius: 0.85rem;
+  }
+
+  .dark {
+    /* Mercury Dark Slate Theme (#0B0F17) */
+    --background: 224 35% 7%;
     --foreground: 210 40% 98%;
-    --card: 217 33% 17%;
+    --card: 224 30% 11%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
+    --popover: 224 35% 9%;
     --popover-foreground: 210 40% 98%;
     --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
+    --primary-foreground: 224 35% 7%;
+    --secondary: 224 25% 15%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
+    --muted: 224 25% 15%;
     --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
+    --accent: 224 25% 15%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 25%;
-    --input: 217 33% 25%;
+    --border: 224 25% 18%;
+    --input: 224 25% 18%;
     --ring: 217 91% 60%;
-    --radius: 0.75rem;
   }
 
   * {
@@ -33,48 +57,53 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans antialiased selection:bg-blue-500/20 selection:text-blue-400 transition-colors duration-300;
   }
 }
 
 @layer components {
+  /* Mercury Glass Card Styling */
   .glass-card {
-    @apply bg-card/60 backdrop-blur-xl border border-white/5 rounded-xl;
+    @apply bg-card/80 backdrop-blur-xl border border-border shadow-sm dark:shadow-none dark:border-white/10 rounded-2xl transition-all duration-200 hover:border-blue-500/30;
   }
 
   .glass-sidebar {
-    @apply bg-sidebar/80 backdrop-blur-xl border-r border-white/5;
+    @apply bg-white/90 dark:bg-[#0B0F17]/90 backdrop-blur-2xl border-r border-border dark:border-white/5 transition-colors duration-300;
   }
 
-  .gradient-primary {
-    @apply bg-gradient-to-r from-blue-600 to-blue-400;
+  /* Mercury Metallic Credit Card Surface */
+  .mercury-card-dark {
+    background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
-  .gradient-success {
-    @apply bg-gradient-to-r from-emerald-600 to-emerald-400;
+  .mercury-card-blue {
+    background: linear-gradient(135deg, #1E3A8A 0%, #1E40AF 40%, #0F172A 100%);
+    box-shadow: 0 20px 40px -15px rgba(30, 58, 138, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   }
 
-  .gradient-danger {
-    @apply bg-gradient-to-r from-red-600 to-red-400;
+  .mercury-card-purple {
+    background: linear-gradient(135deg, #4C1D95 0%, #581C87 40%, #0F172A 100%);
+    box-shadow: 0 20px 40px -15px rgba(76, 29, 149, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   }
 
-  .gradient-warning {
-    @apply bg-gradient-to-r from-amber-600 to-amber-400;
+  /* Pretty Form Input Fields */
+  .pretty-input {
+    @apply w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all duration-200 shadow-sm dark:shadow-inner;
   }
 
-  .stat-card-glow {
-    @apply relative overflow-hidden;
+  .pretty-label {
+    @apply text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 block tracking-wider uppercase;
   }
 
-  .stat-card-glow::before {
-    content: '';
-    @apply absolute -top-1/2 -left-1/2 w-full h-full rounded-full opacity-10 blur-3xl;
-    background: radial-gradient(circle, currentColor 0%, transparent 70%);
+  .pretty-select {
+    @apply w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all duration-200 cursor-pointer appearance-none shadow-sm pr-10;
   }
 
+  /* Scrollbar */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--muted)) transparent;
+    scrollbar-color: hsl(var(--muted-foreground)/0.3) transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -87,12 +116,16 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    @apply bg-muted rounded-full;
+    @apply bg-slate-300 dark:bg-slate-800 rounded-full;
   }
 }
 
 @layer utilities {
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-500 dark:from-blue-400 dark:to-cyan-400 font-extrabold;
+  }
+
+  .glow-blue {
+    box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.4);
   }
 }

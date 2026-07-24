@@ -17,6 +17,8 @@ import categoryReducer from './slices/categorySlice';
 import emiReducer from './slices/emiSlice';
 import subscriptionReducer from './slices/subscriptionSlice';
 import reportReducer from './slices/reportSlice';
+import themeReducer from './slices/themeSlice';
+import modalReducer from './slices/modalSlice';
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -28,6 +30,8 @@ const rootReducer = combineReducers({
   emis: emiReducer,
   subscriptions: subscriptionReducer,
   reports: reportReducer,
+  theme: themeReducer,
+  modal: modalReducer,
 });
 
 const persistConfig = {

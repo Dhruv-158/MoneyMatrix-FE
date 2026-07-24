@@ -8,7 +8,7 @@ function AnimatedNumber({ value, prefix = '' }) {
     ref: countUpRef,
     start: 0,
     end: value || 0,
-    duration: 1.5,
+    duration: 1.2,
     separator: ',',
     decimals: 0,
   });
@@ -19,43 +19,40 @@ function AnimatedNumber({ value, prefix = '' }) {
 }
 
 export default function StatCard({ title, value, icon: Icon, trend, trendValue, color = 'blue', prefix = '₹' }) {
-  const colorMap = {
-    blue: 'from-blue-500/10 to-blue-600/5 border-blue-500/10 text-blue-400',
-    green: 'from-emerald-500/10 to-emerald-600/5 border-emerald-500/10 text-emerald-400',
-    red: 'from-red-500/10 to-red-600/5 border-red-500/10 text-red-400',
-    amber: 'from-amber-500/10 to-amber-600/5 border-amber-500/10 text-amber-400',
-    purple: 'from-purple-500/10 to-purple-600/5 border-purple-500/10 text-purple-400',
-    cyan: 'from-cyan-500/10 to-cyan-600/5 border-cyan-500/10 text-cyan-400',
-  };
-
   const iconColorMap = {
-    blue: 'bg-blue-500/10 text-blue-400',
-    green: 'bg-emerald-500/10 text-emerald-400',
-    red: 'bg-red-500/10 text-red-400',
-    amber: 'bg-amber-500/10 text-amber-400',
-    purple: 'bg-purple-500/10 text-purple-400',
-    cyan: 'bg-cyan-500/10 text-cyan-400',
+    blue: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+    green: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    red: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+    purple: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+    cyan: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20',
   };
 
   return (
     <motion.div
-      whileHover={{ y: -2 }}
-      className={`glass-card p-5 bg-gradient-to-br ${colorMap[color]} border transition-all duration-300`}
+      whileHover={{ y: -3 }}
+      transition={{ duration: 0.2 }}
+      className="glass-card p-5 border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm dark:shadow-none rounded-2xl flex flex-col justify-between"
     >
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
-          <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{title}</p>
-          <p className="text-2xl font-bold text-white mt-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{title}</p>
+          <p className="text-2xl font-black text-slate-900 dark:text-white mt-2 tracking-tight">
             <AnimatedNumber value={value} prefix={prefix} />
           </p>
           {trend && (
-            <p className={`text-xs mt-2 font-medium ${trend === 'up' ? 'text-emerald-400' : 'text-red-400'}`}>
-              {trend === 'up' ? '↑' : '↓'} {trendValue}
-            </p>
+            <div className="flex items-center gap-1 mt-2">
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                trend === 'up' ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10' : 'text-rose-600 bg-rose-50 dark:bg-rose-500/10'
+              }`}>
+                {trend === 'up' ? '↑' : '↓'} {trendValue}
+              </span>
+              <span className="text-[11px] text-slate-400">vs last month</span>
+            </div>
           )}
         </div>
         {Icon && (
-          <div className={`p-2.5 rounded-xl ${iconColorMap[color]}`}>
+          <div className={`p-3 rounded-2xl border ${iconColorMap[color]} shadow-sm flex-shrink-0`}>
             <Icon className="w-5 h-5" />
           </div>
         )}
