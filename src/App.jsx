@@ -1,10 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import ProtectedRoute from './routes/ProtectedRoute';
 import GuestRoute from './routes/GuestRoute';
 import AppLayout from './layouts/AppLayout';
 import LoadingScreen from './components/ui/LoadingScreen';
+import { fetchMe } from '@/redux/slices/authSlice';
 
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
@@ -20,6 +21,23 @@ const Analytics = lazy(() => import('./pages/Analytics'));
 const Settings = lazy(() => import('./pages/Settings'));
 
 export default function App() {
+  const dispatch = useDispatch();
+  const { mode } = useSelector((s) => s.theme);
+  const { token, user } = useSelector((s) => s.auth);
+
+  useEffect(() => {
+    if (token && !user) {
+      dispatch(fetchMe());
+    }
+  }, [dispatch, token, user]);
+
+  useEffect(() => {
+    if (mode === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [mode]);
   return (
     <Suspense fallback={<LoadingScreen />}>
       <Routes>

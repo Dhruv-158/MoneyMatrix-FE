@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { authService } from '@/services/endpoints';
+import { authService, dashboardService } from '@/services/endpoints';
 
 // Backend returns: { success, message, data: { token, user: { id, name, email } } }
 export const login = createAsyncThunk('auth/login', async (credentials, { rejectWithValue }) => {
@@ -19,6 +19,15 @@ export const register = createAsyncThunk('auth/register', async (userData, { rej
     return res.data; // { token, user }
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Registration failed');
+  }
+});
+
+export const fetchMe = createAsyncThunk('auth/fetchMe', async (_, { rejectWithValue }) => {
+  try {
+    const { data: res } = await dashboardService.get();
+    return res.data?.user || { email: 'user@fintrack.com', name: 'Account Holder' };
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Failed to fetch user');
   }
 });
 
@@ -45,6 +54,11 @@ const authSlice = createSlice({
     },
     setAuthInitialized: (state) => {
       state.isInitialized = true;
+    },
+    updateUserProfile: (state, action) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
     },
   },
   extraReducers: (builder) => {
@@ -74,9 +88,16 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
         state.isInitialized = true;
+      })
+      .addCase(fetchMe.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.isInitialized = true;
+      })
+      .addCase(fetchMe.rejected, (state) => {
+        state.isInitialized = true;
       });
   },
 });
 
-export const { logout, clearError, setAuthInitialized } = authSlice.actions;
+export const { logout, clearError, setAuthInitialized, updateUserProfile } = authSlice.actions;
 export default authSlice.reducer;

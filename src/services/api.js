@@ -22,20 +22,24 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor — handle 401 and unwrap { success, message, data } envelope
+// Response interceptor — handle 401 & normalize error.errorMessage with fallback priority:
+// error.response.data.message -> error.message -> "Something went wrong"
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      // Clear both localStorage and Redux state
+    const status = error.response?.status;
+
+    if (status === 401) {
       localStorage.removeItem('token');
       store.dispatch(logout());
-      
-      // Redirect to login if not already there
+
       if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
         window.location.href = '/login';
       }
     }
+
+    const backendMessage = error.response?.data?.message;
+    error.errorMessage = backendMessage || error.message || 'Something went wrong';
     return Promise.reject(error);
   }
 );

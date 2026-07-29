@@ -1,58 +1,449 @@
+import { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
-import { logout } from '@/redux/slices/authSlice';
-import { User, Palette, DollarSign, Bell, Download, Trash2, LogOut } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { logout, updateUserProfile } from '@/redux/slices/authSlice';
+import { toggleTheme, setTheme } from '@/redux/slices/themeSlice';
+
+// Components
+import PageHeader from '@/components/dashboard/PageHeader';
+import SettingsSkeleton from '@/components/analytics/AnalyticsSkeleton';
+import EmptyState from '@/components/ui/EmptyState';
+
+// Icons & Utilities
+import {
+  User, ShieldCheck, Bell, Palette, Globe, Layers, ShieldAlert, Database,
+  Activity, HelpCircle, Search, LogOut, Trash2, Key, Download, Upload, Check, Moon, Sun, Monitor
+} from 'lucide-react';
+import toastService from '@/services/toastService';
+
+import { authService, reportService } from '@/services/endpoints';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
 
 export default function Settings() {
-  const { user } = useSelector((s) => s.auth);
   const dispatch = useDispatch();
+  const { user } = useSelector((s) => s.auth);
+  const { mode } = useSelector((s) => s.theme);
 
-  const sections = [
-    { icon: User, title: 'Profile', desc: 'Manage your account information', items: [{ label: 'Name', value: user?.name }, { label: 'Email', value: user?.email }] },
-    { icon: Palette, title: 'Theme', desc: 'Customize appearance', items: [{ label: 'Mode', value: 'Dark' }] },
-    { icon: DollarSign, title: 'Currency', desc: 'Set your default currency', items: [{ label: 'Currency', value: '₹ INR' }] },
-    { icon: Bell, title: 'Notifications', desc: 'Configure alerts and reminders', items: [{ label: 'Email Notifications', value: 'Enabled' }] },
+  const [activeTab, setActiveTab] = useState('profile');
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Form State
+  const [name, setName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [currency, setCurrency] = useState(user?.settings?.currency || 'INR');
+  const [language, setLanguage] = useState(user?.settings?.language || 'en');
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
+
+  // Notifications State
+  const [notifications, setNotifications] = useState(
+    user?.settings?.notifications || {
+      transactions: true,
+      budgetAlerts: true,
+      billReminders: true,
+      security: true,
+    }
+  );
+
+  const navItems = [
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'security', label: 'Security & Auth', icon: ShieldCheck },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'preferences', label: 'Preferences', icon: Globe },
+    { id: 'appearance', label: 'Appearance', icon: Palette },
+    { id: 'integrations', label: 'Integrations', icon: Layers },
+    { id: 'data', label: 'Data & Privacy', icon: Database },
+    { id: 'danger', label: 'Account Controls', icon: ShieldAlert },
   ];
 
+  const handleProfileSave = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { data: res } = await authService.updateProfile({ name, email });
+      dispatch(updateUserProfile(res.data.user));
+      toastService.success(res.data.message);
+    } catch (err) {
+      toastService.error(err.errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSettingsUpdate = async (newSettings) => {
+    try {
+      const { data: res } = await authService.updateProfile({ settings: newSettings });
+      dispatch(updateUserProfile(res.data.user));
+      toastService.success(res.data.message);
+    } catch (err) {
+      toastService.error(err.errorMessage);
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    if (passwordForm.next !== passwordForm.confirm) {
+      return toastService.error('New passwords do not match');
+    }
+    setLoading(true);
+    try {
+      const { data: res } = await authService.updatePassword({
+        currentPassword: passwordForm.current,
+        newPassword: passwordForm.next,
+      });
+      toastService.success(res.data.message);
+      setPasswordForm({ current: '', next: '', confirm: '' });
+    } catch (err) {
+      toastService.error(err.errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredNav = navItems.filter((item) =>
+    item.label.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 max-w-3xl">
-      <h2 className="text-lg font-semibold text-white">Settings</h2>
+    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-8 max-w-6xl">
+      {/* 1. PAGE HEADER */}
+      <motion.div variants={itemVariants}>
+        <PageHeader
+          title="Account & Settings Center"
+          subtitle="Manage your personal profile, security preferences, appearance, notification alerts, and data exports."
+        />
+      </motion.div>
 
-      {sections.map(s => (
-        <div key={s.title} className="glass-card p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center"><s.icon className="w-4 h-4 text-blue-400" /></div>
-            <div><p className="text-sm font-semibold text-white">{s.title}</p><p className="text-xs text-slate-500">{s.desc}</p></div>
+      {/* 2. SETTINGS LAYOUT WITH SEARCH & SIDEBAR */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* SIDEBAR NAVIGATION */}
+        <motion.div variants={itemVariants} className="md:col-span-1 space-y-4">
+          {/* Settings Search Bar */}
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search settings..."
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-card border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-sm"
+            />
           </div>
-          <div className="space-y-3">
-            {s.items.map(item => (
-              <div key={item.label} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                <span className="text-sm text-slate-400">{item.label}</span>
-                <span className="text-sm font-medium text-white">{item.value}</span>
+
+          <div className="flex flex-col gap-1 p-1 bg-card border border-border rounded-2xl shadow-sm">
+            {filteredNav.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* MAIN SETTINGS CONTENT PANEL */}
+        <motion.div variants={itemVariants} className="md:col-span-3 space-y-6">
+          {/* PROFILE SECTION */}
+          {activeTab === 'profile' && (
+            <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-6">
+              <div className="flex items-center gap-4 pb-4 border-b border-border">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-extrabold text-2xl flex items-center justify-center shadow-lg">
+                  {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{user?.name || 'User Profile'}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{user?.email || 'User Email'}</p>
+                  <span className="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    Verified Account
+                  </span>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      ))}
 
-      <div className="glass-card p-5">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center"><Download className="w-4 h-4 text-amber-400" /></div>
-          <div><p className="text-sm font-semibold text-white">Export Data</p><p className="text-xs text-slate-500">Download all your data</p></div>
-        </div>
-        <button className="px-4 py-2 rounded-lg border border-white/10 text-sm text-slate-400 hover:text-white transition" onClick={() => toast.success('Export coming soon')}>Export as JSON</button>
-      </div>
+              <form onSubmit={handleProfileSave} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">Full Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        setHasChanges(true);
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">Email Address</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setHasChanges(true);
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      required
+                    />
+                  </div>
+                </div>
 
-      <div className="glass-card p-5 border-red-500/10">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center"><Trash2 className="w-4 h-4 text-red-400" /></div>
-          <div><p className="text-sm font-semibold text-red-400">Danger Zone</p><p className="text-xs text-slate-500">Irreversible actions</p></div>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={() => { dispatch(logout()); }} className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/20 transition flex items-center gap-2"><LogOut className="w-4 h-4" /> Logout</button>
-          <button className="px-4 py-2 rounded-lg border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/10 transition" onClick={() => toast.error('Account deletion coming soon')}>Delete Account</button>
-        </div>
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition shadow-md shadow-blue-500/25 active:scale-95"
+                  >
+                    Save Profile Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* SECURITY SECTION */}
+          {activeTab === 'security' && (
+            <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-6">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Security & Password</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Update your password and security credentials.</p>
+              </div>
+
+              <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">Current Password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.current}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">New Password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.next}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, next: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={passwordForm.confirm}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition shadow-md shadow-blue-500/25 active:scale-95"
+                >
+                  Update Password
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* APPEARANCE SECTION */}
+          {activeTab === 'appearance' && (
+            <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-6">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Appearance & Theme</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Select your preferred application color theme.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  onClick={() => dispatch(setTheme('light'))}
+                  className={`p-5 rounded-2xl border flex items-center justify-between transition cursor-pointer ${
+                    mode === 'light'
+                      ? 'bg-blue-500/10 border-blue-500 text-blue-600 dark:text-blue-400'
+                      : 'bg-background border-border text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Sun className="w-5 h-5" />
+                    <span className="text-xs font-bold">Light Mode</span>
+                  </div>
+                  {mode === 'light' && <Check className="w-4 h-4 text-blue-600" />}
+                </button>
+
+                <button
+                  onClick={() => dispatch(setTheme('dark'))}
+                  className={`p-5 rounded-2xl border flex items-center justify-between transition cursor-pointer ${
+                    mode === 'dark'
+                      ? 'bg-blue-500/10 border-blue-500 text-blue-600 dark:text-blue-400'
+                      : 'bg-background border-border text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Moon className="w-5 h-5" />
+                    <span className="text-xs font-bold">Dark Mode</span>
+                  </div>
+                  {mode === 'dark' && <Check className="w-4 h-4 text-blue-600" />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* NOTIFICATIONS SECTION */}
+          {activeTab === 'notifications' && (
+            <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-6">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Notification Preferences</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Choose what email and push alerts you receive.</p>
+              </div>
+
+              <div className="space-y-4">
+                {Object.entries(notifications).map(([key, enabled]) => (
+                  <div key={key} className="flex items-center justify-between py-3 border-b border-border last:border-0">
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white capitalize">{key.replace(/([A-Z])/g, ' $1')}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">Receive alerts regarding {key.toLowerCase()} updates.</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const updated = { ...notifications, [key]: !enabled };
+                        setNotifications(updated);
+                        handleSettingsUpdate({ notifications: updated });
+                      }}
+                      className={`w-11 h-6 rounded-full transition-colors p-1 cursor-pointer ${
+                        enabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-white transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PREFERENCES SECTION */}
+          {activeTab === 'preferences' && (
+            <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-6">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Application Preferences</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Configure display currency and regional settings.</p>
+              </div>
+
+              <div className="space-y-4 max-w-md">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">Display Currency</label>
+                  <select
+                    value={currency}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCurrency(val);
+                      handleSettingsUpdate({ currency: val });
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none"
+                  >
+                    <option value="INR" className="bg-card text-foreground">₹ INR (Indian Rupee)</option>
+                    <option value="USD" className="bg-card text-foreground">$ USD (US Dollar)</option>
+                    <option value="EUR" className="bg-card text-foreground">€ EUR (Euro)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* DATA MANAGEMENT */}
+          {activeTab === 'data' && (
+            <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-6">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Data Export & Backup</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Download a complete JSON copy of your financial records.</p>
+              </div>
+
+              <button
+                onClick={async () => {
+                  try {
+                    const { data: res } = await reportService.getMonthly();
+                    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
+                      JSON.stringify({ user, exportDate: new Date().toISOString(), reportData: res.data }, null, 2)
+                    )}`;
+                    const downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute('href', jsonString);
+                    downloadAnchor.setAttribute('download', `FinTrack_Account_Data_${Date.now()}.json`);
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+                    toastService.success('Account Data JSON exported successfully!');
+                  } catch (err) {
+                    toastService.error(err.errorMessage || 'Failed to generate export JSON');
+                  }
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition shadow-md shadow-blue-500/25 active:scale-95 cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Account Data (JSON)</span>
+              </button>
+            </div>
+          )}
+
+          {/* DANGER ZONE / LOGOUT */}
+          {activeTab === 'danger' && (
+            <div className="p-6 rounded-2xl bg-card border border-rose-500/20 shadow-sm space-y-6">
+              <div>
+                <h3 className="text-sm font-extrabold text-rose-600 dark:text-rose-400">Account Controls & Danger Zone</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Sign out or terminate account sessions.</p>
+              </div>
+
+              <div className="flex gap-3 flex-wrap">
+                <button
+                  onClick={() => dispatch(logout())}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500/20 transition active:scale-95 cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Sign Out of Account</span>
+                </button>
+
+                <button
+                  onClick={() => toastService.error('Account deletion feature disabled')}
+                  className="px-5 py-2.5 rounded-xl border border-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500/10 transition cursor-pointer"
+                >
+                  Delete Account
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* INTEGRATIONS PLACEHOLDER */}
+          {activeTab === 'integrations' && (
+            <EmptyState
+              icon={Layers}
+              title="No connected integrations"
+              description="Link external financial accounts and cloud backups seamlessly."
+            />
+          )}
+        </motion.div>
       </div>
     </motion.div>
   );

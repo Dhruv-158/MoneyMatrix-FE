@@ -1,15 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { openModal } from '@/redux/slices/modalSlice';
+import { fetchDashboard } from '@/redux/slices/dashboardSlice';
+import { fetchBanks } from '@/redux/slices/bankSlice';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import GlobalModalManager from '@/components/modals/GlobalModalManager';
 
 export default function AppLayout() {
   const dispatch = useDispatch();
+  const { isInitialized, token } = useSelector((s) => s.auth);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebar, setMobileSidebar] = useState(false);
+
+  useEffect(() => {
+    if (token && isInitialized) {
+      dispatch(fetchDashboard());
+      dispatch(fetchBanks());
+    }
+  }, [dispatch, token, isInitialized]);
 
   const handleOpenAddTx = () => {
     dispatch(openModal('addTransaction'));
@@ -31,7 +41,7 @@ export default function AppLayout() {
           onMenuClick={() => setMobileSidebar(true)}
           onAddTransaction={handleOpenAddTx}
         />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 scrollbar-thin">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 scrollbar-thin relative z-10">
           <Outlet />
         </main>
       </div>

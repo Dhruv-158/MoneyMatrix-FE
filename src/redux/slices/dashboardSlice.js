@@ -11,6 +11,8 @@ export const fetchDashboard = createAsyncThunk('dashboard/fetch', async (params,
   }
 });
 
+import { createTransaction, deleteTransaction } from './transactionSlice';
+
 const dashboardSlice = createSlice({
   name: 'dashboard',
   initialState: {
@@ -33,7 +35,6 @@ const dashboardSlice = createSlice({
       .addCase(fetchDashboard.fulfilled, (state, action) => {
         state.loading = false;
         const d = action.payload;
-        // console.log("🚀 ~ dashboardSlice ~ fetchDashboard.fulfilled ~ d:", d)
         state.totalBalance = d.totalBalance || 0;
         state.cashBalance = d.cashBalance || 0;
         state.totalBankBalance = d.totalBankBalance || 0;
@@ -47,6 +48,19 @@ const dashboardSlice = createSlice({
       .addCase(fetchDashboard.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      .addCase(createTransaction.fulfilled, (state, action) => {
+        if (action.payload) {
+          state.recentTransactions.unshift(action.payload);
+          if (action.payload.type === 'expense') {
+            state.monthlyExpense += action.payload.amount;
+            state.totalBalance -= action.payload.amount;
+          } else if (action.payload.type === 'income') {
+            state.monthlyIncome += action.payload.amount;
+            state.totalBalance += action.payload.amount;
+          }
+          state.savings = state.monthlyIncome - state.monthlyExpense;
+        }
       });
   },
 });
