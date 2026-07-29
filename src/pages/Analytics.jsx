@@ -3,12 +3,30 @@ import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import html2pdf from 'html2pdf.js';
 import { fetchReport } from '@/redux/slices/reportSlice';
-import { ChartCard, GlobalPieChart, GlobalBarChart, GlobalLineChart, GlobalAreaChart } from '@/components/charts';
+
+// Components
+import PageHeader from '@/components/dashboard/PageHeader';
 import StatCard from '@/components/cards/StatCard';
+import InsightCard from '@/components/dashboard/InsightCard';
+import AnalyticsSkeleton from '@/components/analytics/AnalyticsSkeleton';
+import EmptyState from '@/components/ui/EmptyState';
+import { ChartCard, GlobalPieChart, GlobalBarChart, GlobalLineChart, GlobalAreaChart } from '@/components/charts';
+
+// Icons & Utilities
 import { formatCurrency } from '@/utils/helpers';
 import { CHART_COLORS } from '@/constants';
-import { TrendingUp, TrendingDown, PiggyBank, Download, Wallet } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { TrendingUp, TrendingDown, PiggyBank, Download, Wallet, BarChart2, ShieldAlert, Sparkles, Building2, PieChart } from 'lucide-react';
+import toastService from '@/services/toastService';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
 
 export default function Analytics() {
   const dispatch = useDispatch();
@@ -17,14 +35,14 @@ export default function Analytics() {
   const { lastUpdated } = useSelector((s) => s.transactions);
 
   const today = new Date().toISOString().split('T')[0];
-  const currentMonth = today.slice(0, 7); // YYYY-MM
-  const currentYear = today.slice(0, 4); // YYYY
+  const currentMonth = today.slice(0, 7);
+  const currentYear = today.slice(0, 4);
 
   const [activeTab, setActiveTab] = useState('monthly');
   const [dailyDate, setDailyDate] = useState(today);
   const [monthlyDate, setMonthlyDate] = useState(currentMonth);
   const [yearlyDate, setYearlyDate] = useState(currentYear);
-  const [chartFilter, setChartFilter] = useState('both'); // 'income', 'expense', 'both'
+  const [chartFilter, setChartFilter] = useState('both');
 
   const getDateParam = () => {
     if (activeTab === 'daily') return dailyDate;
@@ -42,31 +60,32 @@ export default function Analytics() {
 
   const handleDownloadPdf = async () => {
     const element = document.getElementById('analytics-content');
-    if (!element) return toast.error('Analytics content not found');
+    if (!element) return toastService.error('Analytics content not found');
 
     const dateParam = getDateParam();
     const opt = {
-      margin:       [0.3, 0.3, 0.3, 0.3],
-      filename:     `analytics-${activeTab}-${dateParam}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#0f172a' },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      margin: [0.3, 0.3, 0.3, 0.3],
+      filename: `analytics-${activeTab}-${dateParam}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#0f172a' },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
     };
 
-    const loadingToast = toast.loading('Generating Analytics PDF...');
+    const loadingToast = toastService.loading('Generating Analytics PDF...');
     try {
       await html2pdf().set(opt).from(element).save();
-      toast.dismiss(loadingToast);
-      toast.success('Analytics PDF downloaded');
+      toastService.dismiss(loadingToast);
+      toastService.success('Analytics PDF downloaded');
     } catch (err) {
-      toast.dismiss(loadingToast);
+      toastService.dismiss(loadingToast);
       console.error(err);
-      toast.error('Failed to generate PDF');
+      toastService.error('Failed to generate PDF');
     }
   };
 
   const tabs = ['daily', 'monthly', 'yearly'];
-  const inputClass = 'px-3 py-2 rounded-lg bg-card border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50';
+  const inputClass =
+    'px-3 py-2 rounded-xl bg-card border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm';
 
   const categoryWise = (data?.categoryWiseExpenses || []).map((c, i) => ({
     name: c.name || c.category || c._id || 'Uncategorized',
@@ -81,37 +100,53 @@ export default function Analytics() {
   }));
 
   const summary = data?.summary || { income: 0, expense: 0, transfer: 0 };
+  const netSavings = data?.netSavings || 0;
+  const savingsRate = data?.savingsRate || (summary.income > 0 ? Math.round((netSavings / summary.income) * 100) : 0);
+
   const cashFlow = [
     { name: 'Income', value: summary.income || 0, color: '#22c55e' },
     { name: 'Expense', value: summary.expense || 0, color: '#ef4444' },
-    { name: 'Savings', value: data?.netSavings || 0, color: '#3b82f6' },
+    { name: 'Savings', value: netSavings, color: '#3b82f6' },
   ];
 
-  const savingsData = [{ month: 'Current', savings: data?.netSavings || 0, income: summary.income || 0, expense: summary.expense || 0 }];
+  const savingsData = [
+    { month: 'Current Period', savings: netSavings, income: summary.income || 0, expense: summary.expense || 0 },
+  ];
+
+  if (loading && !data) {
+    return <AnalyticsSkeleton />;
+  }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      {/* Header controls: Tabs, Date Pickers, PDF Export */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        {/* Tab Buttons */}
-        <div className="flex gap-2">
+    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-8">
+      {/* 1. PAGE HEADER */}
+      <motion.div variants={itemVariants}>
+        <PageHeader
+          title="Financial Analytics & Intelligence"
+          subtitle="Analyze financial performance, identify spending patterns, and monitor long-term growth using interactive reports."
+          onExport={handleDownloadPdf}
+        />
+      </motion.div>
+
+      {/* 2. ANALYTICS CONTROLS & TIMEFRAME SELECTOR */}
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-card border border-border shadow-sm">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-border">
           {tabs.map((t) => (
             <button
               key={t}
               onClick={() => setActiveTab(t)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition ${
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
                 activeTab === t
-                  ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                  : 'text-slate-400 border border-white/5 hover:border-white/10'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              {t}
+              {t} Report
             </button>
           ))}
         </div>
 
-        {/* Date Filter & Actions */}
-        <div className="flex gap-2 flex-wrap items-center">
+        <div className="flex items-center gap-3 flex-wrap">
           {activeTab === 'daily' && (
             <input
               type="date"
@@ -147,138 +182,145 @@ export default function Analytics() {
 
           <button
             onClick={handleDownloadPdf}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 text-slate-400 hover:text-white text-sm transition"
-            title="Download Analytics PDF"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition shadow-md shadow-blue-500/25 active:scale-95"
+            title="Download PDF"
           >
-            <Download className="w-4 h-4" /> PDF
+            <Download className="w-4 h-4" />
+            <span>Export PDF</span>
           </button>
         </div>
-      </div>
+      </motion.div>
 
-      {loading ? (
-        <div className="py-16 text-center">
-          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+      {/* 3. KPI OVERVIEW (6 METRICS) */}
+      <motion.div variants={itemVariants} id="analytics-content" className="space-y-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <StatCard
+            title="Total Income"
+            value={summary.income}
+            icon={TrendingUp}
+            color="emerald"
+            subtitle="Total revenue generated"
+          />
+          <StatCard
+            title="Total Expenses"
+            value={summary.expense}
+            icon={TrendingDown}
+            color="rose"
+            subtitle="Total expenses incurred"
+          />
+          <StatCard
+            title="Net Savings"
+            value={netSavings}
+            icon={PiggyBank}
+            color="blue"
+            subtitle={`Savings Rate: ${savingsRate}%`}
+          />
+          <StatCard
+            title="Transfers & Swaps"
+            value={summary.transfer}
+            icon={Wallet}
+            color="purple"
+            subtitle="Inter-account transfer volume"
+          />
+          <StatCard
+            title="Savings Rate"
+            value={`${savingsRate}%`}
+            icon={Sparkles}
+            color="cyan"
+            subtitle="Percentage of income saved"
+          />
+          <StatCard
+            title="Account Allocation"
+            value={bankWise.length}
+            icon={Building2}
+            color="amber"
+            subtitle="Active bank accounts connected"
+          />
         </div>
-      ) : (
-        <div id="analytics-content" className="space-y-6 p-4 rounded-xl bg-slate-900/60 border border-white/5">
-          {/* Summary Overview Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard title="Income" value={summary.income} icon={TrendingUp} color="green" />
-            <StatCard title="Expense" value={summary.expense} icon={TrendingDown} color="red" />
-            <StatCard title="Transfers" value={summary.transfer} icon={TrendingUp} color="blue" />
-            <StatCard title="Net Savings" value={data?.netSavings || 0} icon={PiggyBank} color="amber" />
-          </div>
 
-          {/* Charts Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Income vs Expense Trend Chart with Both / Income / Expense Filter Toggles */}
-            {data?.dailyBreakdown && data.dailyBreakdown.length > 0 && (
-              <ChartCard title="Income vs Expense Trend">
-                <div className="mb-4 flex gap-2">
-                  <button
-                    onClick={() => setChartFilter('both')}
-                    className={`px-3 py-1 rounded-lg text-sm transition ${
-                      chartFilter === 'both'
-                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                        : 'bg-white/5 text-slate-400 border border-white/10 hover:border-white/20'
-                    }`}
-                  >
-                    Both
-                  </button>
-                  <button
-                    onClick={() => setChartFilter('income')}
-                    className={`px-3 py-1 rounded-lg text-sm transition ${
-                      chartFilter === 'income'
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                        : 'bg-white/5 text-slate-400 border border-white/10 hover:border-white/20'
-                    }`}
-                  >
-                    Income
-                  </button>
-                  <button
-                    onClick={() => setChartFilter('expense')}
-                    className={`px-3 py-1 rounded-lg text-sm transition ${
-                      chartFilter === 'expense'
-                        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                        : 'bg-white/5 text-slate-400 border border-white/10 hover:border-white/20'
-                    }`}
-                  >
-                    Expense
-                  </button>
-                </div>
-                {data.dailyBreakdown.length <= 4 ? (
-                  <GlobalBarChart
-                    data={data.dailyBreakdown}
-                    xKey="date"
-                    height={300}
-                    showLegend={true}
-                    bars={[
-                      { key: 'income', name: 'Income', color: '#10b981' },
-                      { key: 'expense', name: 'Expense', color: '#ef4444' },
-                    ].filter((s) => chartFilter === 'both' || chartFilter === s.key)}
-                  />
-                ) : (
-                  <GlobalLineChart
-                    data={data.dailyBreakdown}
-                    xKey="date"
-                    height={300}
-                    showLegend={true}
-                    series={[
-                      { key: 'income', name: 'Income', color: '#10b981' },
-                      { key: 'expense', name: 'Expense', color: '#ef4444' },
-                    ].filter((s) => chartFilter === 'both' || chartFilter === s.key)}
-                  />
-                )}
-              </ChartCard>
-            )}
-
-            {/* Category-wise Expenses */}
-            <ChartCard title="Category-wise Expenses">
-              <GlobalPieChart
-                data={categoryWise}
-                height={300}
-                innerRadius={60}
-                outerRadius={110}
-                showLabels={true}
-                emptyMessage="No category expense data"
-              />
-            </ChartCard>
-
-            {/* Bank-wise Expenses */}
-            <ChartCard title="Bank-wise Expenses">
-              <GlobalBarChart
-                data={bankWise}
-                height={300}
-                xKey="name"
-                bars={[{ key: 'value', name: 'Expense' }]}
-                emptyMessage="No bank expense data"
-              />
-            </ChartCard>
-
-            {/* Cash Flow Overview */}
-            <ChartCard title="Cash Flow Overview">
-              <GlobalBarChart
-                data={cashFlow}
-                height={300}
-                xKey="name"
-                bars={[{ key: 'value', name: 'Amount' }]}
-              />
-            </ChartCard>
-
-            {/* Savings Trend */}
-            <ChartCard title="Savings Trend">
-              <GlobalAreaChart
-                data={savingsData}
-                height={300}
-                xKey="month"
-                series={[{ key: 'savings', name: 'Savings', color: '#3b82f6', gradId: 'sg' }]}
-              />
-            </ChartCard>
-          </div>
+        {/* 4. FINANCIAL INSIGHTS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <InsightCard
+            icon={Sparkles}
+            headline="Savings Rate Target Met"
+            explanation={`Your savings rate is currently sitting at ${savingsRate}%. Maintaining over 20% indicates healthy financial discipline.`}
+            color="emerald"
+          />
+          <InsightCard
+            icon={ShieldAlert}
+            headline="Expense Monitoring"
+            explanation={`Total spending for this ${activeTab} period is ${formatCurrency(summary.expense)}. Review category allocations for optimization.`}
+            color="amber"
+          />
         </div>
-      )}
+
+        {/* 5. CHARTS GRID */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Income vs Expense Trend Chart */}
+          {data?.dailyBreakdown && data.dailyBreakdown.length > 0 && (
+            <ChartCard title="Income vs Expense Trend">
+              <div className="mb-4 flex gap-2">
+                {['both', 'income', 'expense'].map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => setChartFilter(filter)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold capitalize transition ${
+                      chartFilter === filter
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-border'
+                    }`}
+                  >
+                    {filter}
+                  </button>
+                ))}
+              </div>
+              <GlobalLineChart
+                data={data.dailyBreakdown}
+                xKey="date"
+                height={300}
+                showLegend={true}
+                series={[
+                  { key: 'income', name: 'Income', color: '#10b981' },
+                  { key: 'expense', name: 'Expense', color: '#ef4444' },
+                ].filter((s) => chartFilter === 'both' || chartFilter === s.key)}
+              />
+            </ChartCard>
+          )}
+
+          {/* Category-wise Expenses */}
+          <ChartCard title="Category-wise Expense Breakdown">
+            <GlobalPieChart
+              data={categoryWise}
+              height={300}
+              innerRadius={65}
+              outerRadius={105}
+              showLabels={true}
+              emptyMessage="No category expense data"
+            />
+          </ChartCard>
+
+          {/* Bank-wise Expenses */}
+          <ChartCard title="Bank Account Allocation">
+            <GlobalBarChart
+              data={bankWise}
+              height={300}
+              xKey="name"
+              bars={[{ key: 'value', name: 'Expense' }]}
+              emptyMessage="No bank expense data"
+            />
+          </ChartCard>
+
+          {/* Cash Flow Distribution */}
+          <ChartCard title="Cash Flow Overview">
+            <GlobalBarChart
+              data={cashFlow}
+              height={300}
+              xKey="name"
+              bars={[{ key: 'value', name: 'Amount' }]}
+            />
+          </ChartCard>
+        </div>
+      </motion.div>
     </motion.div>
   );
 }
-
-

@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { register, clearError } from '@/redux/slices/authSlice';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
-import toast from 'react-hot-toast';
+import toastService from '@/services/toastService';
 
 export default function Register() {
   const dispatch = useDispatch();
@@ -16,10 +16,10 @@ export default function Register() {
     e.preventDefault();
     dispatch(clearError());
     try {
-      await dispatch(register(form)).unwrap();
-      toast.success('Account created successfully!');
+      const res = await dispatch(register(form)).unwrap();
+      toastService.success(res?.message || 'Account created successfully!');
     } catch (err) {
-      toast.error(err || 'Registration failed');
+      toastService.error(err || 'Registration failed');
     }
   };
 
@@ -28,8 +28,8 @@ export default function Register() {
       {/* Left decorative panel */}
       <div className="hidden lg:flex flex-1 relative overflow-hidden bg-gradient-to-br from-emerald-600/20 to-blue-600/10 items-center justify-center">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="text-center px-12 relative z-10">
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/20">
-            <span className="text-4xl font-bold text-white">F</span>
+          <div className="w-24 h-24 rounded-3xl overflow-hidden shadow-2xl shadow-blue-500/30 border border-blue-500/30 bg-slate-900 mx-auto mb-6 p-1">
+            <img src="/logo.png" alt="FinTrack Logo" className="w-full h-full object-cover rounded-2xl" />
           </div>
           <h1 className="text-4xl font-bold text-white mb-3">Join FinTrack</h1>
           <p className="text-lg text-slate-300">Start managing your finances today</p>

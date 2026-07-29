@@ -21,6 +21,17 @@ export const createTransaction = createAsyncThunk('transactions/create', async (
   }
 });
 
+export const deleteTransaction = createAsyncThunk('transactions/delete', async (id, { rejectWithValue }) => {
+  try {
+    if (transactionService.delete) {
+      await transactionService.delete(id);
+    }
+    return id;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Failed to delete transaction');
+  }
+});
+
 const transactionSlice = createSlice({
   name: 'transactions',
   initialState: {
@@ -49,6 +60,11 @@ const transactionSlice = createSlice({
       .addCase(createTransaction.fulfilled, (state, action) => {
         state.items.unshift(action.payload);
         state.total += 1;
+        state.lastUpdated = Date.now();
+      })
+      .addCase(deleteTransaction.fulfilled, (state, action) => {
+        state.items = state.items.filter((item) => item._id !== action.payload);
+        state.total = Math.max(0, state.total - 1);
         state.lastUpdated = Date.now();
       });
   },

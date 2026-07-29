@@ -30,8 +30,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-border">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20">
-          <span className="text-white font-extrabold text-lg tracking-wider">M</span>
+        <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20 border border-blue-500/20 bg-slate-900">
+          <img src="/logo.png" alt="FinTrack Logo" className="w-full h-full object-cover" />
         </div>
         {!collapsed && (
           <motion.div
@@ -41,6 +41,9 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
           >
             <span className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
               FinTrack
+            </span>
+            <span className="text-[10px] font-bold text-blue-500 tracking-widest uppercase">
+              Financial Suite
             </span>
           </motion.div>
         )}
