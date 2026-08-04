@@ -6,6 +6,7 @@ export const authService = {
   register: (data) => api.post('/auth/register', data),
   updateProfile: (data) => api.put('/auth/profile', data),
   updatePassword: (data) => api.put('/auth/password', data),
+  generateTelegramCode: () => api.post('/auth/generate-telegram-code'),
 };
 
 // ─── Dashboard ───────────────────────────────────────

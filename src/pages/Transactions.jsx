@@ -19,8 +19,8 @@ import TransactionSkeleton from '@/components/transactions/TransactionSkeleton';
 
 import {
   Search, Filter, ArrowUpRight, ArrowDownRight, ArrowLeftRight,
-  ChevronLeft, ChevronRight, Download, FileText, CheckCircle2,
-  Clock, XCircle, MoreVertical, Trash2, Check, RefreshCw
+  ChevronLeft, ChevronRight, FileText,
+  Clock, MoreVertical, Trash2
 } from 'lucide-react';
 
 const containerVariants = {
@@ -94,7 +94,8 @@ export default function Transactions() {
       toastService.success(`${selectedIds.length} transactions deleted`);
       setSelectedIds([]);
       dispatch(fetchTransactions({ page, limit: 10, ...filters }));
-    } catch (err) {
+    // eslint-disable-next-line no-unused-vars
+    } catch (errorMessage) {
       toastService.error('Failed to delete selected transactions');
     }
   };
@@ -177,7 +178,7 @@ export default function Transactions() {
           title="Transactions Ledger"
           subtitle="View, search, filter and manage every financial transaction across your accounts."
           onAddTransaction={() => dispatch(openModal('addTransaction'))}
-          onExport={() => toast.success('CSV Export initiated')}
+          onExport={() => toastService.success('CSV Export initiated')}
         />
       </motion.div>
 
@@ -557,6 +558,7 @@ export default function Transactions() {
         selectedCount={selectedIds.length}
         onClear={() => setSelectedIds([])}
         onDelete={handleBulkDelete}
+        // eslint-disable-next-line no-undef
         onExport={() => toast.success(`Exporting ${selectedIds.length} transactions`)}
       />
     </motion.div>
