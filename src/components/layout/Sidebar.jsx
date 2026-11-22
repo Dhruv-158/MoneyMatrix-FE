@@ -2,17 +2,17 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { logout } from '@/redux/slices/authSlice';
-import { formatCurrency } from '@/utils/helpers';
+import { useMoneyFormat } from '@/hooks/useMoneyFormat';
 import { SIDEBAR_SECTIONS } from '@/constants';
 import {
   LayoutDashboard, ArrowLeftRight, Building2, Wallet, CalendarClock,
   RefreshCw, Tags, FileBarChart, TrendingUp, Settings, LogOut,
-  ChevronLeft, ChevronRight, X
+  ChevronLeft, ChevronRight, X, Bot
 } from 'lucide-react';
 
 const iconMap = {
   LayoutDashboard, ArrowLeftRight, Building2, Wallet, CalendarClock,
-  RefreshCw, Tags, FileBarChart, TrendingUp, Settings,
+  RefreshCw, Tags, FileBarChart, TrendingUp, Settings, Bot,
 };
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
@@ -20,6 +20,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
   const navigate = useNavigate();
   const { user } = useSelector((s) => s.auth);
   const { totalBalance } = useSelector((s) => s.dashboard);
+  const { formatMoney } = useMoneyFormat();
 
   const handleLogout = () => {
     dispatch(logout());
@@ -31,7 +32,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-border">
         <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20 border border-blue-500/20 bg-slate-900">
-          <img src="/logo.png" alt="FinTrack Logo" className="w-full h-full object-cover" />
+          <img src="/logo.png" alt="MoneyMatrix Logo" className="w-full h-full object-cover" />
         </div>
         {!collapsed && (
           <motion.div
@@ -40,7 +41,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
             className="flex flex-col"
           >
             <span className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
-              FinTrack
+              MoneyMatrix
             </span>
             <span className="text-[10px] font-bold text-blue-500 tracking-widest uppercase">
               Financial Suite
@@ -53,7 +54,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
       {!collapsed && (
         <div className="mx-3 mt-4 p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-white/10 shadow-sm">
           <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">Total Balance</p>
-          <p className="text-lg font-black text-slate-900 dark:text-white mt-0.5">{formatCurrency(totalBalance)}</p>
+          <p className="text-lg font-black text-slate-900 dark:text-white mt-0.5">{formatMoney(totalBalance)}</p>
         </div>
       )}
 

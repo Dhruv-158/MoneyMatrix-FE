@@ -10,9 +10,12 @@ import PageHeader from '@/components/dashboard/PageHeader';
 // Icons & Utilities
 import {
   User, ShieldCheck, Bell, Palette, Globe, Layers, ShieldAlert, Database,
-  Search, LogOut, Key, Download, Check, Moon, Sun, 
-  Send, Copy, Mail, RefreshCw} from 'lucide-react';
+  Search, LogOut, Key, Download, Check, Moon, Sun,
+  Send, Mail, RefreshCw, Eye, EyeOff
+} from 'lucide-react';
 import toastService from '@/services/toastService';
+import { resolveMediaUrl } from '@/utils/helpers';
+import { testLlmConnection } from '@/services/aiClient';
 
 import { authService, reportService } from '@/services/endpoints';
 
@@ -39,9 +42,63 @@ export default function Settings() {
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [currency, setCurrency] = useState(user?.settings?.currency || 'INR');
+  const [currencySymbol, setCurrencySymbol] = useState(user?.settings?.currencySymbol || '');
+  const [language, setLanguage] = useState(user?.settings?.language || 'en');
+  const [recoveryEmail, setRecoveryEmail] = useState(user?.settings?.recoveryEmail || '');
+  const [reminderLeadDays, setReminderLeadDays] = useState(
+    user?.settings?.reminderLeadDays ?? 3
+  );
+  const [quietHours, setQuietHours] = useState(
+    user?.settings?.quietHours || {
+      enabled: false,
+      start: '22:00',
+      end: '08:00',
+      timezone: 'Asia/Kolkata',
+    }
+  );
+  const [privacy, setPrivacy] = useState(
+    user?.settings?.privacy || { maskBalances: false, hideFriendEmails: false }
+  );
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [llmTesting, setLlmTesting] = useState(false);
+  const DEFAULT_MODELS = {
+    groq: 'llama-3.3-70b-versatile',
+    gemini: 'gemini-2.0-flash',
+    openai: 'gpt-4o-mini',
+    grok: 'grok-2-latest',
+    anthropic: 'claude-sonnet-4-5',
+    huggingface: 'meta-llama/Llama-3.3-70B-Instruct',
+    custom: '',
+  };
+  const HF_DEFAULT_BASE_URL = 'https://router.huggingface.co/v1';
+
   const [aiProvider, setAiProvider] = useState(user?.settings?.aiProvider || 'groq');
-  const [aiApiKey, setAiApiKey] = useState(user?.settings?.aiApiKey || '');
+  const [aiApiKey, setAiApiKey] = useState('');
+  const [aiModel, setAiModel] = useState(
+    user?.settings?.aiModel || DEFAULT_MODELS[user?.settings?.aiProvider || 'groq'] || ''
+  );
+  const [aiBaseUrl, setAiBaseUrl] = useState(user?.settings?.aiBaseUrl || '');
+  const [hasSavedAiKey, setHasSavedAiKey] = useState(
+    Boolean(user?.settings?.hasAiApiKey || user?.settings?.aiApiKey)
+  );
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
+
+  const needsBaseUrl = aiProvider === 'huggingface' || aiProvider === 'custom';
+
+  const handleAiProviderChange = (nextProvider) => {
+    setAiProvider(nextProvider);
+    const nextDefault = DEFAULT_MODELS[nextProvider] || '';
+    setAiModel((prev) => {
+      const wasDefault = Object.values(DEFAULT_MODELS).includes(prev) || !prev;
+      return wasDefault ? nextDefault : prev;
+    });
+    if (nextProvider === 'huggingface' && !aiBaseUrl.trim()) {
+      setAiBaseUrl(HF_DEFAULT_BASE_URL);
+    }
+    if (nextProvider !== 'huggingface' && nextProvider !== 'custom') {
+      setAiBaseUrl('');
+    }
+  };
 
   // Notifications State
   const [notifications, setNotifications] = useState(
@@ -54,26 +111,51 @@ export default function Settings() {
   );
 
   // Telegram Integration State
-  const [telegramCode, setTelegramCode] = useState('');
   const [telegramLoading, setTelegramLoading] = useState(false);
-  const [telegramCopied, setTelegramCopied] = useState(false);
   const [telegramEmailSent, setTelegramEmailSent] = useState(false);
   const [telegramEmail, setTelegramEmail] = useState('');
 
   const handleGenerateTelegramCode = async () => {
     setTelegramLoading(true);
-    setTelegramCopied(false);
     try {
       const { data: res } = await authService.generateTelegramCode();
-      const code = res.data?.code;
-      setTelegramCode(code);
-      setTelegramEmailSent(res.data?.emailSent || false);
+      setTelegramEmailSent(Boolean(res.data?.emailed || res.data?.emailSent));
       setTelegramEmail(res.data?.email || user?.email || '');
-      toastService.success(`Linking code generated! ${res.data?.emailSent ? 'Also sent to your email.' : ''}`);
+      toastService.success('Linking code sent to your email. Check your inbox to finish Telegram linking.');
     } catch (err) {
       toastService.error(err.errorMessage || 'Failed to generate Telegram code');
     } finally {
       setTelegramLoading(false);
+    }
+  };
+
+  const handleSaveAiSettings = async () => {
+    if (aiProvider === 'custom' && !aiBaseUrl.trim()) {
+      toastService.error('Custom provider needs a Base URL (OpenAI-compatible endpoint).');
+      return;
+    }
+    if (!aiModel.trim() && aiProvider === 'custom') {
+      toastService.error('Custom provider needs a model name.');
+      return;
+    }
+    const resolvedBaseUrl =
+      aiProvider === 'huggingface'
+        ? (aiBaseUrl.trim() || HF_DEFAULT_BASE_URL)
+        : needsBaseUrl
+          ? aiBaseUrl.trim()
+          : '';
+    const payload = {
+      aiProvider,
+      aiModel: aiModel.trim() || DEFAULT_MODELS[aiProvider] || '',
+      aiBaseUrl: resolvedBaseUrl,
+    };
+    if (aiApiKey.trim()) {
+      payload.aiApiKey = aiApiKey.trim();
+    }
+    await handleSettingsUpdate(payload);
+    if (aiApiKey.trim()) {
+      setHasSavedAiKey(true);
+      setAiApiKey('');
     }
   };
 
@@ -95,11 +177,39 @@ export default function Settings() {
     try {
       const { data: res } = await authService.updateProfile({ name, email });
       dispatch(updateUserProfile(res.data.user));
-      toastService.success(res.data.message);
+      toastService.success(res.message || res.data?.message || 'Profile updated');
     } catch (err) {
       toastService.error(err.errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const { data: res } = await authService.uploadAvatar(file);
+      dispatch(updateUserProfile(res.data.user));
+      toastService.success(res.message || 'Avatar updated');
+    } catch (err) {
+      toastService.error(err.errorMessage || 'Avatar upload failed');
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleTestLlm = async () => {
+    setLlmTesting(true);
+    try {
+      const result = await testLlmConnection(localStorage.getItem('token'));
+      toastService.success(result?.message || 'LLM connection OK');
+    } catch (err) {
+      toastService.error(err.errorMessage || 'LLM test failed');
+    } finally {
+      setLlmTesting(false);
     }
   };
 
@@ -191,9 +301,29 @@ export default function Settings() {
           {activeTab === 'profile' && (
             <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-6">
               <div className="flex items-center gap-4 pb-4 border-b border-border">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-extrabold text-2xl flex items-center justify-center shadow-lg">
-                  {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                </div>
+                <label className="relative cursor-pointer group">
+                  {user?.avatarUrl ? (
+                    <img
+                      src={resolveMediaUrl(user.avatarUrl)}
+                      alt=""
+                      className="w-16 h-16 rounded-2xl object-cover shadow-lg border border-border"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-extrabold text-2xl flex items-center justify-center shadow-lg">
+                      {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleAvatarChange}
+                    disabled={avatarUploading}
+                  />
+                  <span className="absolute inset-0 rounded-2xl bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[10px] font-bold text-white transition">
+                    {avatarUploading ? '…' : 'Change'}
+                  </span>
+                </label>
                 <div>
                   <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{user?.name || 'User Profile'}</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{user?.email || 'User Email'}</p>
@@ -210,10 +340,7 @@ export default function Settings() {
                     <input
                       type="text"
                       value={name}
-                      onChange={(e) => {
-                        setName(e.target.value);
-                        setHasChanges(true);
-                      }}
+                      onChange={(e) => setName(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                       required
                     />
@@ -223,10 +350,7 @@ export default function Settings() {
                     <input
                       type="email"
                       value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        setHasChanges(true);
-                      }}
+                      onChange={(e) => setEmail(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                       required
                     />
@@ -353,15 +477,56 @@ export default function Settings() {
                   </label>
                   <select
                     value={aiProvider}
-                    onChange={(e) => setAiProvider(e.target.value)}
+                    onChange={(e) => handleAiProviderChange(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                   >
-                    <option value="groq" className="bg-card text-foreground">Groq (Llama 3.3 70B - Ultra Fast)</option>
-                    <option value="gemini" className="bg-card text-foreground">Google Gemini (Gemini 2.0 Flash)</option>
-                    <option value="openai" className="bg-card text-foreground">OpenAI (GPT-4o mini)</option>
-                    <option value="grok" className="bg-card text-foreground">xAI Grok (Grok-2)</option>
+                    <option value="groq" className="bg-card text-foreground">Groq (Llama 3.3 70B)</option>
+                    <option value="gemini" className="bg-card text-foreground">Google Gemini</option>
+                    <option value="openai" className="bg-card text-foreground">OpenAI</option>
+                    <option value="anthropic" className="bg-card text-foreground">Anthropic Claude</option>
+                    <option value="grok" className="bg-card text-foreground">xAI Grok</option>
+                    <option value="huggingface" className="bg-card text-foreground">HuggingFace</option>
+                    <option value="custom" className="bg-card text-foreground">Custom (OpenAI-compatible)</option>
                   </select>
+                  {aiProvider === 'custom' && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">
+                      Works with any OpenAI-compatible chat API (OpenRouter, Ollama, Together, etc.).
+                      Cursor IDE is not a chat API key — use a real provider endpoint.
+                    </p>
+                  )}
                 </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 block">
+                    Model
+                  </label>
+                  <input
+                    type="text"
+                    value={aiModel}
+                    onChange={(e) => setAiModel(e.target.value)}
+                    placeholder={DEFAULT_MODELS[aiProvider] || 'model-id'}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                </div>
+
+                {needsBaseUrl && (
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 block">
+                      Base URL
+                    </label>
+                    <input
+                      type="url"
+                      value={aiBaseUrl}
+                      onChange={(e) => setAiBaseUrl(e.target.value)}
+                      placeholder={
+                        aiProvider === 'huggingface'
+                          ? HF_DEFAULT_BASE_URL
+                          : 'https://api.example.com/v1'
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 block">
@@ -371,21 +536,39 @@ export default function Settings() {
                     type="password"
                     value={aiApiKey}
                     onChange={(e) => setAiApiKey(e.target.value)}
-                    placeholder={`Paste your ${aiProvider.toUpperCase()} API key here...`}
+                    placeholder={
+                      hasSavedAiKey
+                        ? '•••• saved — enter a new key to replace'
+                        : `Paste your ${aiProvider.toUpperCase()} API key here...`
+                    }
+                    autoComplete="off"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                   />
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Your key is saved securely in your profile and never shared.
+                    {hasSavedAiKey
+                      ? 'A key is already saved. Leave blank to keep it, or paste a new key to replace.'
+                      : 'Your key is stored in your profile. Leave blank on save to avoid overwriting later.'}
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleSettingsUpdate({ aiProvider, aiApiKey })}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm"
-                >
-                  Save AI Settings
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveAiSettings}
+                    disabled={loading}
+                    className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm disabled:opacity-50"
+                  >
+                    {loading ? 'Saving…' : 'Save AI Settings'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleTestLlm}
+                    disabled={llmTesting}
+                    className="px-5 py-2.5 rounded-xl border border-border text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-50"
+                  >
+                    {llmTesting ? 'Testing…' : 'Test connection'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -420,6 +603,71 @@ export default function Settings() {
                   </div>
                 ))}
               </div>
+
+              <div className="pt-4 border-t border-border space-y-4 max-w-md">
+                <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">Quiet hours (Telegram)</h4>
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-slate-500">Pause proactive Telegram reminders overnight</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = { ...quietHours, enabled: !quietHours.enabled };
+                      setQuietHours(next);
+                      handleSettingsUpdate({ quietHours: next });
+                    }}
+                    className={`w-11 h-6 rounded-full transition-colors p-1 cursor-pointer ${
+                      quietHours.enabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <div className={`w-4 h-4 rounded-full bg-white transition-transform ${quietHours.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 block mb-1">Start</label>
+                    <input
+                      type="time"
+                      value={quietHours.start || '22:00'}
+                      onChange={(e) => setQuietHours({ ...quietHours, start: e.target.value })}
+                      onBlur={() => handleSettingsUpdate({ quietHours })}
+                      className="w-full px-3 py-2 rounded-xl bg-background border border-border text-xs font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 block mb-1">End</label>
+                    <input
+                      type="time"
+                      value={quietHours.end || '08:00'}
+                      onChange={(e) => setQuietHours({ ...quietHours, end: e.target.value })}
+                      onBlur={() => handleSettingsUpdate({ quietHours })}
+                      className="w-full px-3 py-2 rounded-xl bg-background border border-border text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 block mb-1">Timezone</label>
+                  <input
+                    type="text"
+                    value={quietHours.timezone || 'Asia/Kolkata'}
+                    onChange={(e) => setQuietHours({ ...quietHours, timezone: e.target.value })}
+                    onBlur={() => handleSettingsUpdate({ quietHours })}
+                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-xs font-semibold"
+                    placeholder="Asia/Kolkata"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 block mb-1">EMI / subscription reminder lead (days)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={14}
+                    value={reminderLeadDays}
+                    onChange={(e) => setReminderLeadDays(Number(e.target.value))}
+                    onBlur={() => handleSettingsUpdate({ reminderLeadDays })}
+                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-xs font-semibold"
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -428,10 +676,25 @@ export default function Settings() {
             <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-6">
               <div>
                 <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Application Preferences</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Configure display currency and regional settings.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Language, currency, and recovery contact.</p>
               </div>
 
               <div className="space-y-4 max-w-md">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">Language</label>
+                  <select
+                    value={language}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLanguage(val);
+                      handleSettingsUpdate({ language: val });
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none"
+                  >
+                    <option value="en" className="bg-card text-foreground">English</option>
+                    <option value="hi" className="bg-card text-foreground">Hindi (hi-IN numbers/dates)</option>
+                  </select>
+                </div>
                 <div>
                   <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">Display Currency</label>
                   <select
@@ -443,10 +706,39 @@ export default function Settings() {
                     }}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none"
                   >
-                    <option value="INR" className="bg-card text-foreground">₹ INR (Indian Rupee)</option>
-                    <option value="USD" className="bg-card text-foreground">$ USD (US Dollar)</option>
-                    <option value="EUR" className="bg-card text-foreground">€ EUR (Euro)</option>
+                    <option value="INR" className="bg-card text-foreground">INR — Indian Rupee</option>
+                    <option value="USD" className="bg-card text-foreground">USD — US Dollar</option>
+                    <option value="EUR" className="bg-card text-foreground">EUR — Euro</option>
+                    <option value="GBP" className="bg-card text-foreground">GBP — British Pound</option>
+                    <option value="AED" className="bg-card text-foreground">AED — UAE Dirham</option>
+                    <option value="SGD" className="bg-card text-foreground">SGD — Singapore Dollar</option>
+                    <option value="AUD" className="bg-card text-foreground">AUD — Australian Dollar</option>
+                    <option value="JPY" className="bg-card text-foreground">JPY — Japanese Yen</option>
                   </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">Custom symbol (optional)</label>
+                  <input
+                    type="text"
+                    value={currencySymbol}
+                    onChange={(e) => setCurrencySymbol(e.target.value)}
+                    onBlur={() => handleSettingsUpdate({ currencySymbol })}
+                    placeholder="e.g. ₹ or Rs."
+                    maxLength={6}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-1 block">Recovery / backup email</label>
+                  <input
+                    type="email"
+                    value={recoveryEmail}
+                    onChange={(e) => setRecoveryEmail(e.target.value)}
+                    onBlur={() => handleSettingsUpdate({ recoveryEmail })}
+                    placeholder="backup@example.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-slate-900 dark:text-white text-xs font-semibold focus:outline-none"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">Telegram linking codes are also CC’d here when set.</p>
                 </div>
               </div>
             </div>
@@ -456,8 +748,55 @@ export default function Settings() {
           {activeTab === 'data' && (
             <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-6">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Data Export & Backup</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Download a complete JSON copy of your financial records.</p>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Data Export & Privacy</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Export records and control what appears on screen.</p>
+              </div>
+
+              <div className="space-y-4 max-w-md">
+                <div className="flex items-center justify-between py-2">
+                  <div className="flex items-center gap-2">
+                    <EyeOff className="w-4 h-4 text-slate-400" />
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">Mask balances</p>
+                      <p className="text-[11px] text-slate-500">Hide amounts on dashboard when tab is public</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = { ...privacy, maskBalances: !privacy.maskBalances };
+                      setPrivacy(next);
+                      handleSettingsUpdate({ privacy: next });
+                    }}
+                    className={`w-11 h-6 rounded-full transition-colors p-1 cursor-pointer ${
+                      privacy.maskBalances ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <div className={`w-4 h-4 rounded-full bg-white transition-transform ${privacy.maskBalances ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-slate-400" />
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">Hide friend emails</p>
+                      <p className="text-[11px] text-slate-500">Omit friend emails in transaction UI/API</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = { ...privacy, hideFriendEmails: !privacy.hideFriendEmails };
+                      setPrivacy(next);
+                      handleSettingsUpdate({ privacy: next });
+                    }}
+                    className={`w-11 h-6 rounded-full transition-colors p-1 cursor-pointer ${
+                      privacy.hideFriendEmails ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <div className={`w-4 h-4 rounded-full bg-white transition-transform ${privacy.hideFriendEmails ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                </div>
               </div>
 
               <button
@@ -469,7 +808,7 @@ export default function Settings() {
                     )}`;
                     const downloadAnchor = document.createElement('a');
                     downloadAnchor.setAttribute('href', jsonString);
-                    downloadAnchor.setAttribute('download', `FinTrack_Account_Data_${Date.now()}.json`);
+                    downloadAnchor.setAttribute('download', `MoneyMatrix_Account_Data_${Date.now()}.json`);
                     document.body.appendChild(downloadAnchor);
                     downloadAnchor.click();
                     downloadAnchor.remove();
@@ -542,7 +881,7 @@ export default function Settings() {
                     <div>
                       <h4 className="text-xs font-bold text-slate-900 dark:text-white">Account Linking Verification Code</h4>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Generate a 6-digit code to link your FinTrack account. The code will be displayed here and sent to your email.
+                        Generate a one-time linking code. For security it is emailed only — it is not shown in the app.
                       </p>
                     </div>
                     <button
@@ -555,52 +894,28 @@ export default function Settings() {
                       ) : (
                         <Key className="w-4 h-4" />
                       )}
-                      <span>{telegramCode ? 'Regenerate Code' : 'Generate Link Code & Send Email'}</span>
+                      <span>{telegramEmailSent ? 'Resend Code to Email' : 'Send Link Code to Email'}</span>
                     </button>
                   </div>
 
-                  {/* DISPLAY GENERATED CODE & INSTRUCTIONS */}
-                  {telegramCode && (
+                  {telegramEmailSent && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="p-5 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-4"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-4">
-                        <div>
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Your 6-Digit Linking Code</span>
-                          <div className="flex items-center gap-3 mt-1">
-                            <span className="text-2xl font-black tracking-[0.25em] text-blue-600 dark:text-blue-400 font-mono">
-                              {telegramCode}
-                            </span>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(`/start ${telegramCode}`);
-                                setTelegramCopied(true);
-                                toastService.success('Command copied to clipboard!');
-                                setTimeout(() => setTelegramCopied(false), 3000);
-                              }}
-                              className="p-1.5 rounded-lg bg-background border border-border text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
-                              title="Copy Telegram Command"
-                            >
-                              {telegramCopied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold">
-                          <Mail className="w-4 h-4" />
-                          <span>Code sent to {telegramEmail}</span>
-                        </div>
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold w-fit">
+                        <Mail className="w-4 h-4" />
+                        <span>Code sent to {telegramEmail}</span>
                       </div>
 
-                      {/* INSTRUCTIONS */}
-                      <div className="pt-3 border-t border-blue-500/10 space-y-2">
+                      <div className="space-y-2">
                         <p className="text-xs font-bold text-slate-900 dark:text-white">How to complete linking:</p>
                         <ol className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 list-decimal list-inside font-medium">
+                          <li>Open the email and copy the linking code.</li>
                           <li>Open <strong>Telegram</strong> on your phone or desktop.</li>
                           <li>Search for <strong className="text-blue-600 dark:text-blue-400">@moneymatrix_ai_bot</strong>.</li>
-                          <li>Send the command: <code className="px-2 py-0.5 rounded bg-background border border-border font-mono font-bold text-blue-600 dark:text-blue-400">/start {telegramCode}</code></li>
+                          <li>Send: <code className="px-2 py-0.5 rounded bg-background border border-border font-mono font-bold text-blue-600 dark:text-blue-400">/start YOUR_CODE</code></li>
                         </ol>
                       </div>
                     </motion.div>

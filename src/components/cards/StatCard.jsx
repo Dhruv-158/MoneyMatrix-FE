@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useCountUp } from 'react-countup';
+import { useMoneyFormat } from '@/hooks/useMoneyFormat';
 
 function AnimatedNumber({ value, prefix = '' }) {
   const countUpRef = useRef(null);
@@ -18,7 +19,10 @@ function AnimatedNumber({ value, prefix = '' }) {
   return <><span>{prefix}</span><span ref={countUpRef} /></>;
 }
 
-export default function StatCard({ title, value, icon: Icon, trend, trendValue, color = 'blue', prefix = '₹' }) {
+export default function StatCard({ title, value, icon: Icon, trend, trendValue, color = 'blue', prefix }) {
+  const { formatMoney, symbol, maskBalances } = useMoneyFormat();
+  const displayPrefix = prefix !== undefined ? prefix : (symbol || '₹');
+
   const iconColorMap = {
     blue: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
     green: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
@@ -38,7 +42,11 @@ export default function StatCard({ title, value, icon: Icon, trend, trendValue, 
         <div className="flex-1">
           <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{title}</p>
           <p className="text-2xl font-black text-slate-900 dark:text-white mt-2 tracking-tight">
-            <AnimatedNumber value={value} prefix={prefix} />
+            {maskBalances ? (
+              formatMoney(value)
+            ) : (
+              <AnimatedNumber value={value} prefix={displayPrefix} />
+            )}
           </p>
           {trend && (
             <div className="flex items-center gap-1 mt-2">

@@ -21,7 +21,7 @@ export default function LoadingScreen() {
             <Loader2 className="w-5 h-5 text-blue-400" />
           </motion.div>
         </div>
-        <p className="text-muted-foreground text-sm font-medium">Loading FinTrack...</p>
+        <p className="text-muted-foreground text-sm font-medium">Loading MoneyMatrix...</p>
       </motion.div>
     </div>
   );

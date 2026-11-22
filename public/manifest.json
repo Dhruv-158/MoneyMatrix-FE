@@ -1,7 +1,7 @@
 {
-  "short_name": "FinTrack",
-  "name": "FinTrack — Personal Finance & AI Assistant",
-  "description": "FinTrack - Premium personal expense tracker and financial dashboard",
+  "short_name": "MoneyMatrix",
+  "name": "MoneyMatrix — Personal Finance & AI Assistant",
+  "description": "MoneyMatrix personal expense tracker, reports, and AI assistant",
   "icons": [
     {
       "src": "/favicon.svg",

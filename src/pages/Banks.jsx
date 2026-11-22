@@ -12,7 +12,7 @@ import BankSkeleton from '@/components/banks/BankSkeleton';
 import EmptyState from '@/components/ui/EmptyState';
 
 // Icons & Utilities
-import { formatCurrency } from '@/utils/helpers';
+import { useMoneyFormat } from '@/hooks/useMoneyFormat';
 import { Plus, Building2, X, LayoutGrid, List, Pencil, Trash2, ShieldCheck, Wallet, CreditCard, RefreshCw } from 'lucide-react';
 import toastService from '@/services/toastService';
 
@@ -27,6 +27,7 @@ const itemVariants = {
 };
 
 export default function Banks() {
+  const { formatMoney } = useMoneyFormat();
   const dispatch = useDispatch();
   const { list: banks, loading } = useSelector((s) => s.banks);
   const { isInitialized } = useSelector((s) => s.auth);
@@ -246,7 +247,7 @@ export default function Banks() {
                           •••• {bank.accountNumberLast4 || '----'}
                         </td>
                         <td className="px-5 py-4 text-right text-xs font-extrabold text-slate-900 dark:text-white">
-                          {formatCurrency(bank.currentBalance)}
+                          {formatMoney(bank.currentBalance)}
                         </td>
                         <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-1">

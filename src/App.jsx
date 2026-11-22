@@ -19,6 +19,7 @@ const Categories = lazy(() => import('./pages/Categories'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Assistant = lazy(() => import('./pages/Assistant'));
 
 export default function App() {
   const dispatch = useDispatch();
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="categories" element={<Categories />} />
           <Route path="reports" element={<Reports />} />
           <Route path="analytics" element={<Analytics />} />
+          <Route path="assistant" element={<Assistant />} />
           <Route path="settings" element={<Settings />} />
         </Route>
 

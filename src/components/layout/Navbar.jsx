@@ -6,6 +6,8 @@ import { Menu, Search, Bell, Plus, LogOut, User, Sun, Moon, X, AlertCircle, Tren
 import { useState, useRef, useEffect, useMemo } from 'react';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { resolveMediaUrl } from '@/utils/helpers';
+import { useMoneyFormat } from '@/hooks/useMoneyFormat';
 
 const pageTitles = {
   '/dashboard': 'Dashboard',
@@ -17,6 +19,7 @@ const pageTitles = {
   '/categories': 'Categories',
   '/reports': 'Reports',
   '/analytics': 'Analytics',
+  '/assistant': 'AI Assistant',
   '/settings': 'Settings',
 };
 
@@ -28,6 +31,7 @@ export default function Navbar({ onMenuClick, onAddTransaction }) {
   const { items: transactions } = useSelector((s) => s.transactions);
   const { monthlyExpense, monthlyIncome, categoryExpenses } = useSelector((s) => s.dashboard);
   const { list: categories } = useSelector((s) => s.categories);
+  const { formatMoney } = useMoneyFormat();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -36,7 +40,7 @@ export default function Navbar({ onMenuClick, onAddTransaction }) {
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
 
-  const title = pageTitles[location.pathname] || 'FinTrack';
+  const title = pageTitles[location.pathname] || 'MoneyMatrix';
 
   const dynamicNotifs = useMemo(() => {
     const notifList = [];
@@ -49,7 +53,7 @@ export default function Navbar({ onMenuClick, onAddTransaction }) {
       notifList.push({
         id: `friend-${topFriend._id}`,
         title: 'Pending Friend Settlement',
-        message: `${topFriend.friendDetails.name} has a pending settlement of ₹${topFriend.amount}.`,
+        message: `${topFriend.friendDetails.name} has a pending settlement of ${formatMoney(topFriend.amount)}.`,
         time: 'Active',
         type: 'friend',
         unread: true,
@@ -75,7 +79,7 @@ export default function Navbar({ onMenuClick, onAddTransaction }) {
       notifList.push({
         id: `cat-${topCat._id || topCat.name}`,
         title: 'Highest Spending Category',
-        message: `Category "${topCat.name}" is your highest outflow group (₹${topCat.total}).`,
+        message: `Category "${topCat.name}" is your highest outflow group (${formatMoney(topCat.total)}).`,
         time: 'This Month',
         type: 'alert',
         unread: false,
@@ -153,6 +157,7 @@ export default function Navbar({ onMenuClick, onAddTransaction }) {
           onClick={() => dispatch(toggleTheme())}
           className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
           title={mode === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           {mode === 'dark' ? (
             <Sun className="w-5 h-5 text-amber-400 transition-transform hover:rotate-45" />
@@ -167,6 +172,8 @@ export default function Navbar({ onMenuClick, onAddTransaction }) {
             onClick={() => setNotifOpen((prev) => !prev)}
             className="relative p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all cursor-pointer"
             title="Notifications"
+            aria-label="Open notifications"
+            aria-expanded={notifOpen}
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
@@ -256,9 +263,17 @@ export default function Navbar({ onMenuClick, onAddTransaction }) {
             className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition"
             title="Profile menu"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-extrabold shadow-sm">
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-            </div>
+            {user?.avatarUrl ? (
+              <img
+                src={resolveMediaUrl(user.avatarUrl)}
+                alt=""
+                className="w-8 h-8 rounded-full object-cover shadow-sm border border-border"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-extrabold shadow-sm">
+                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+              </div>
+            )}
           </button>
 
           {dropdownOpen && (

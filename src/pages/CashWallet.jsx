@@ -19,7 +19,8 @@ import EmptyState from '@/components/ui/EmptyState';
 import { ChartCard } from '@/components/charts';
 
 // Icons & Helpers
-import { formatCurrency, formatDate } from '@/utils/helpers';
+import { formatDate } from '@/utils/helpers';
+import { useMoneyFormat } from '@/hooks/useMoneyFormat';
 import {
   Wallet, ArrowUpRight, ArrowDownRight, ArrowLeftRight, X, Building2,
   PlusCircle, RefreshCw, FileText, Lock, ShieldCheck, Sparkles, ShieldAlert, Clock, AlertCircle
@@ -38,6 +39,7 @@ const itemVariants = {
 };
 
 export default function CashWallet() {
+  const { formatMoney } = useMoneyFormat();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -96,7 +98,7 @@ export default function CashWallet() {
   const activityList = cashTxns.slice(0, 5).map((tx) => ({
     id: tx._id,
     title: tx.type === 'income' || tx.transferType === 'bank_to_cash' ? 'Cash Added / Received' : 'Cash Paid / Transferred',
-    description: `${tx.note || 'Cash Transaction'} (${formatCurrency(tx.amount)})`,
+    description: `${tx.note || 'Cash Transaction'} (${formatMoney(tx.amount)})`,
     timestamp: tx.date,
     dotColor: tx.type === 'income' || tx.transferType === 'bank_to_cash' ? 'bg-emerald-500' : 'bg-rose-500',
   }));
@@ -183,7 +185,7 @@ export default function CashWallet() {
           explanation={
             pendingTxns.length === 0
               ? 'You currently have zero funds on hold. All cash balances are cleared and ready for deployment.'
-              : `You have ${pendingTxns.length} transaction(s) totaling ${formatCurrency(holdBalance)} under pending settlement.`
+              : `You have ${pendingTxns.length} transaction(s) totaling ${formatMoney(holdBalance)} under pending settlement.`
           }
           color={pendingTxns.length === 0 ? 'emerald' : 'amber'}
         />
@@ -246,7 +248,7 @@ export default function CashWallet() {
                         }`}
                       >
                         {tx.type === 'income' || tx.transferType === 'bank_to_cash' ? '+' : '-'}
-                        {formatCurrency(tx.amount)}
+                        {formatMoney(tx.amount)}
                       </p>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                         Cleared

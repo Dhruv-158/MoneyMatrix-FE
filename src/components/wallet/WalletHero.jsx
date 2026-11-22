@@ -1,8 +1,9 @@
 import React from 'react';
 import { Wallet as WalletIcon, ArrowUpRight, ArrowLeftRight, Download, Edit3, ShieldCheck } from 'lucide-react';
-import { formatCurrency } from '@/utils/helpers';
+import { useMoneyFormat } from '@/hooks/useMoneyFormat';
 
 export default function WalletHero({ balance = 0, onSetBalance, onTransfer, onExport }) {
+  const { formatMoney } = useMoneyFormat();
   return (
     <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-slate-900 text-white p-6 sm:p-8 shadow-2xl border border-white/10">
       {/* Background Decorative Glow */}
@@ -37,7 +38,7 @@ export default function WalletHero({ balance = 0, onSetBalance, onTransfer, onEx
         <div className="space-y-1 pt-2">
           <span className="text-xs font-bold text-blue-200/90 uppercase tracking-wider">Available Cash Balance</span>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-white">
-            {formatCurrency(balance)}
+            {formatMoney(balance)}
           </h1>
         </div>
 

@@ -20,7 +20,8 @@ import EmptyState from '@/components/ui/EmptyState';
 import { ChartCard } from '@/components/charts';
 
 // Icons & Helpers
-import { formatCurrency, formatDate } from '@/utils/helpers';
+import { formatDate } from '@/utils/helpers';
+import { useMoneyFormat } from '@/hooks/useMoneyFormat';
 import { CHART_COLORS } from '@/constants';
 import {
   Wallet, Banknote, Building2, TrendingUp, TrendingDown, PiggyBank,
@@ -45,6 +46,7 @@ const itemVariants = {
 export default function Dashboard() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { formatMoney } = useMoneyFormat();
 
   const { isInitialized } = useSelector((s) => s.auth);
   const {
@@ -57,12 +59,16 @@ export default function Dashboard() {
 
   const [timeframe, setTimeframe] = useState('monthly'); // 'weekly' | 'monthly' | 'yearly'
 
+  // Initial shell load is handled by AppLayout; only force-refresh after txn changes.
   useEffect(() => {
-    if (isInitialized) {
-      dispatch(fetchDashboard());
-      dispatch(fetchBanks());
-      dispatch(fetchEmis());
-    }
+    if (!isInitialized) return;
+    dispatch(fetchEmis());
+  }, [dispatch, isInitialized]);
+
+  useEffect(() => {
+    if (!isInitialized || !lastUpdated) return;
+    dispatch(fetchDashboard({ force: true }));
+    dispatch(fetchBanks({ force: true }));
   }, [dispatch, isInitialized, lastUpdated]);
 
   // Compute monthly trend line chart data
@@ -111,7 +117,7 @@ export default function Dashboard() {
   const activityList = (recentTransactions || []).slice(0, 5).map((tx) => ({
     id: tx._id,
     title: tx.type === 'income' ? 'Income Received' : tx.type === 'expense' ? 'Expense Paid' : 'Transfer Completed',
-    description: `${tx.note || tx.type} (${formatCurrency(tx.amount)})`,
+    description: `${tx.note || tx.type} (${formatMoney(tx.amount)})`,
     timestamp: tx.date,
     dotColor: tx.type === 'income' ? 'bg-emerald-500' : tx.type === 'expense' ? 'bg-rose-500' : 'bg-blue-500',
   }));
@@ -350,7 +356,7 @@ export default function Dashboard() {
                       tx.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : tx.type === 'expense' ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'
                     }`}>
                       {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}
-                      {formatCurrency(tx.amount)}
+                      {formatMoney(tx.amount)}
                     </p>
                   </div>
                 ))}
