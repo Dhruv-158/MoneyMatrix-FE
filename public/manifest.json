@@ -1,0 +1,25 @@
+{
+  "short_name": "FinTrack",
+  "name": "FinTrack — Personal Finance & AI Assistant",
+  "description": "FinTrack - Premium personal expense tracker and financial dashboard",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/"
+}
