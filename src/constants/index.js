@@ -1,5 +1,7 @@
 // API Configuration
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+export const AI_BASE_URL = import.meta.env.VITE_AI_URL || 'http://localhost:8000';
+export const APP_NAME = 'MoneyMatrix';
 
 // Currency
 export const DEFAULT_CURRENCY = '₹';
@@ -110,6 +112,7 @@ export const SIDEBAR_SECTIONS = [
     items: [
       { path: '/reports', label: 'Reports', icon: 'FileBarChart' },
       { path: '/analytics', label: 'Analytics', icon: 'TrendingUp' },
+      { path: '/assistant', label: 'AI Assistant', icon: 'Bot' },
     ],
   },
   {

@@ -1,33 +1,43 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { authService, dashboardService } from '@/services/endpoints';
+import { authService } from '@/services/endpoints';
+import api from '@/services/api';
 
-// Backend returns: { success, message, data: { token, user: { id, name, email } } }
+const persistTokens = (token, refreshToken) => {
+  if (token) localStorage.setItem('token', token);
+  if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+};
+
+const clearTokens = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+};
+
 export const login = createAsyncThunk('auth/login', async (credentials, { rejectWithValue }) => {
   try {
     const { data: res } = await authService.login(credentials);
-    localStorage.setItem('token', res.data.token);
-    return res.data; // { token, user }
+    persistTokens(res.data.token, res.data.refreshToken);
+    return res.data;
   } catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Login failed');
+    return rejectWithValue(err.errorMessage || err.response?.data?.message || 'Login failed');
   }
 });
 
 export const register = createAsyncThunk('auth/register', async (userData, { rejectWithValue }) => {
   try {
     const { data: res } = await authService.register(userData);
-    localStorage.setItem('token', res.data.token);
-    return res.data; // { token, user }
+    persistTokens(res.data.token, res.data.refreshToken);
+    return res.data;
   } catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Registration failed');
+    return rejectWithValue(err.errorMessage || err.response?.data?.message || 'Registration failed');
   }
 });
 
 export const fetchMe = createAsyncThunk('auth/fetchMe', async (_, { rejectWithValue }) => {
   try {
-    const { data: res } = await dashboardService.get();
-    return res.data?.user || { email: 'user@fintrack.com', name: 'Account Holder' };
+    const { data: res } = await authService.getProfile();
+    return res.data?.user || res.data;
   } catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Failed to fetch user');
+    return rejectWithValue(err.errorMessage || err.response?.data?.message || 'Failed to fetch user');
   }
 });
 
@@ -36,18 +46,29 @@ const authSlice = createSlice({
   initialState: {
     user: null,
     token: localStorage.getItem('token') || null,
+    refreshToken: localStorage.getItem('refreshToken') || null,
     isAuthenticated: !!localStorage.getItem('token'),
     loading: false,
     error: null,
-    isInitialized: !!localStorage.getItem('token'), // True if token exists, false otherwise
+    isInitialized: !!localStorage.getItem('token'),
   },
   reducers: {
     logout: (state) => {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        api.post('/auth/logout', { refreshToken }).catch(() => {});
+      }
       state.user = null;
       state.token = null;
+      state.refreshToken = null;
       state.isAuthenticated = false;
       state.isInitialized = true;
-      localStorage.removeItem('token');
+      clearTokens();
+    },
+    setTokens: (state, action) => {
+      state.token = action.payload.token;
+      state.refreshToken = action.payload.refreshToken;
+      state.isAuthenticated = Boolean(action.payload.token);
     },
     clearError: (state) => {
       state.error = null;
@@ -67,6 +88,7 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
         state.token = action.payload.token;
+        state.refreshToken = action.payload.refreshToken || null;
         state.user = action.payload.user;
         state.isAuthenticated = true;
         state.isInitialized = true;
@@ -80,6 +102,7 @@ const authSlice = createSlice({
       .addCase(register.fulfilled, (state, action) => {
         state.loading = false;
         state.token = action.payload.token;
+        state.refreshToken = action.payload.refreshToken || null;
         state.user = action.payload.user;
         state.isAuthenticated = true;
         state.isInitialized = true;
@@ -99,5 +122,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError, setAuthInitialized, updateUserProfile } = authSlice.actions;
+export const { logout, setTokens, clearError, setAuthInitialized, updateUserProfile } = authSlice.actions;
 export default authSlice.reducer;

@@ -81,7 +81,7 @@ export default function Transactions() {
       toastService.success('Transaction deleted');
       dispatch(fetchTransactions({ page, limit: 10, ...filters }));
     } catch (err) {
-      toastService.error(err || 'Failed to delete transaction');
+      toastService.error(err?.errorMessage || err);
     }
   };
 

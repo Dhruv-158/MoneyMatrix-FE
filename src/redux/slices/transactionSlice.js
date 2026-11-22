@@ -8,7 +8,7 @@ export const fetchTransactions = createAsyncThunk('transactions/fetchAll', async
     const { data: res } = await transactionService.getAll(params);
     return res.data; // { items, page, limit, total }
   } catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Failed to fetch transactions');
+    return rejectWithValue(err.errorMessage || err.response?.data?.message || 'Failed to fetch transactions');
   }
 });
 
@@ -17,18 +17,16 @@ export const createTransaction = createAsyncThunk('transactions/create', async (
     const { data: res } = await transactionService.create(txData);
     return res.data;
   } catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Failed to create transaction');
+    return rejectWithValue(err.errorMessage || err.response?.data?.message || 'Failed to create transaction');
   }
 });
 
 export const deleteTransaction = createAsyncThunk('transactions/delete', async (id, { rejectWithValue }) => {
   try {
-    if (transactionService.delete) {
-      await transactionService.delete(id);
-    }
+    await transactionService.delete(id);
     return id;
   } catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Failed to delete transaction');
+    return rejectWithValue(err.errorMessage || err.response?.data?.message || 'Failed to delete transaction');
   }
 });
 

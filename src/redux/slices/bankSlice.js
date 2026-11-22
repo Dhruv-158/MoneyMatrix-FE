@@ -1,16 +1,35 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { bankService } from '@/services/endpoints';
 
-// Backend returns: { success, message, data: [array of banks] }
+const STALE_MS = 30_000;
+
 // Bank fields: _id, bankName, accountType, currentBalance, accountNumberLast4, color, icon, iconUrl, imageUrl
-export const fetchBanks = createAsyncThunk('banks/fetchAll', async (_, { rejectWithValue }) => {
-  try {
-    const { data: res } = await bankService.getAll();
-    return res.data; // array of banks
-  } catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Failed to fetch banks');
+export const fetchBanks = createAsyncThunk(
+  'banks/fetchAll',
+  async (_arg, { rejectWithValue }) => {
+    try {
+      const { data: res } = await bankService.getAll();
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Failed to fetch banks');
+    }
+  },
+  {
+    condition: (arg, { getState }) => {
+      if (arg?.force) return true;
+      const { banks } = getState();
+      if (banks.loading) return false;
+      if (
+        banks.list?.length > 0 &&
+        banks.lastFetchedAt &&
+        Date.now() - banks.lastFetchedAt < STALE_MS
+      ) {
+        return false;
+      }
+      return true;
+    },
   }
-});
+);
 
 export const createBank = createAsyncThunk('banks/create', async (bankData, { rejectWithValue }) => {
   try {
@@ -45,6 +64,7 @@ const bankSlice = createSlice({
     list: [],
     loading: false,
     error: null,
+    lastFetchedAt: null,
   },
   reducers: {
     clearBankError: (state) => { state.error = null; },
@@ -52,15 +72,27 @@ const bankSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchBanks.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(fetchBanks.fulfilled, (state, action) => { state.loading = false; state.list = action.payload; })
-      .addCase(fetchBanks.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
-      .addCase(createBank.fulfilled, (state, action) => { state.list.push(action.payload); })
+      .addCase(fetchBanks.fulfilled, (state, action) => {
+        state.loading = false;
+        state.list = action.payload;
+        state.lastFetchedAt = Date.now();
+      })
+      .addCase(fetchBanks.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(createBank.fulfilled, (state, action) => {
+        state.list.push(action.payload);
+        state.lastFetchedAt = null;
+      })
       .addCase(updateBank.fulfilled, (state, action) => {
-        const idx = state.list.findIndex(b => b._id === action.payload._id);
+        const idx = state.list.findIndex((b) => b._id === action.payload._id);
         if (idx !== -1) state.list[idx] = action.payload;
+        state.lastFetchedAt = null;
       })
       .addCase(deleteBank.fulfilled, (state, action) => {
-        state.list = state.list.filter(b => b._id !== action.payload);
+        state.list = state.list.filter((b) => b._id !== action.payload);
+        state.lastFetchedAt = null;
       });
   },
 });

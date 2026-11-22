@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { formatCurrency } from '@/utils/helpers';
+import { useMoneyFormat } from '@/hooks/useMoneyFormat';
 import { Building2, MoreVertical, Pencil, Trash2, Wifi, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 
@@ -28,6 +28,7 @@ const cardThemes = [
 ];
 
 export default function BankCard({ bank, index = 0, onEdit, onDelete }) {
+  const { formatMoney } = useMoneyFormat();
   const [menuOpen, setMenuOpen] = useState(false);
   const theme = cardThemes[index % cardThemes.length];
 
@@ -117,7 +118,7 @@ export default function BankCard({ bank, index = 0, onEdit, onDelete }) {
         </span>
         <div className="flex items-baseline justify-between">
           <p className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-            {formatCurrency(bank.currentBalance || 0)}
+            {formatMoney(bank.currentBalance || 0)}
           </p>
           <p className="text-xs font-mono font-bold tracking-widest text-white/80">
             •••• {bank.accountNumberLast4 || '----'}

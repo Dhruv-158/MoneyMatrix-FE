@@ -4,8 +4,18 @@ import api from './api';
 export const authService = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (data) => api.post('/auth/register', data),
+  refresh: (refreshToken) => api.post('/auth/refresh', { refreshToken }),
+  logout: (refreshToken) => api.post('/auth/logout', { refreshToken }),
+  getProfile: () => api.get('/auth/profile'),
   updateProfile: (data) => api.put('/auth/profile', data),
   updatePassword: (data) => api.put('/auth/password', data),
+  uploadAvatar: (file) => {
+    const form = new FormData();
+    form.append('avatar', file);
+    return api.post('/auth/avatar', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
   generateTelegramCode: () => api.post('/auth/generate-telegram-code'),
 };
 
@@ -34,6 +44,7 @@ export const cashService = {
 export const transactionService = {
   getAll: (params) => api.get('/transactions', { params }),
   create: (data) => api.post('/transactions', data),
+  delete: (id) => api.delete(`/transactions/${id}`),
   settleFriend: (id) => api.patch(`/transactions/${id}/settle-friend`),
 };
 

@@ -1,17 +1,32 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { dashboardService } from '@/services/endpoints';
-
-// Backend returns: { success, message, data: { totalBalance, cashBalance, totalBankBalance, monthlyIncome, monthlyExpense, savings, recentTransactions, analytics } }
-export const fetchDashboard = createAsyncThunk('dashboard/fetch', async (params, { rejectWithValue }) => {
-  try {
-    const { data: res } = await dashboardService.get(params);
-    return res.data;
-  } catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Failed to fetch dashboard');
-  }
-});
-
 import { createTransaction, deleteTransaction } from './transactionSlice';
+
+const STALE_MS = 30_000;
+
+export const fetchDashboard = createAsyncThunk(
+  'dashboard/fetch',
+  async (params, { rejectWithValue }) => {
+    try {
+      const { force, ...query } = params || {};
+      const { data: res } = await dashboardService.get(query);
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Failed to fetch dashboard');
+    }
+  },
+  {
+    condition: (params, { getState }) => {
+      if (params?.force) return true;
+      const { dashboard } = getState();
+      if (dashboard.loading) return false;
+      if (dashboard.lastFetchedAt && Date.now() - dashboard.lastFetchedAt < STALE_MS) {
+        return false;
+      }
+      return true;
+    },
+  }
+);
 
 const dashboardSlice = createSlice({
   name: 'dashboard',
@@ -27,6 +42,7 @@ const dashboardSlice = createSlice({
     categoryExpenses: [],
     loading: false,
     error: null,
+    lastFetchedAt: null,
   },
   reducers: {},
   extraReducers: (builder) => {
@@ -34,6 +50,7 @@ const dashboardSlice = createSlice({
       .addCase(fetchDashboard.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(fetchDashboard.fulfilled, (state, action) => {
         state.loading = false;
+        state.lastFetchedAt = Date.now();
         const d = action.payload;
         state.totalBalance = d.totalBalance || 0;
         state.cashBalance = d.cashBalance || 0;
@@ -50,17 +67,21 @@ const dashboardSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(createTransaction.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.recentTransactions.unshift(action.payload);
-          if (action.payload.type === 'expense') {
-            state.monthlyExpense += action.payload.amount;
-            state.totalBalance -= action.payload.amount;
-          } else if (action.payload.type === 'income') {
-            state.monthlyIncome += action.payload.amount;
-            state.totalBalance += action.payload.amount;
-          }
-          state.savings = state.monthlyIncome - state.monthlyExpense;
+        const tx = action.payload;
+        if (!tx) return;
+        state.recentTransactions = [tx, ...(state.recentTransactions || [])].slice(0, 10);
+        if (tx.type === 'expense') {
+          state.monthlyExpense += tx.amount;
+          state.totalBalance -= tx.amount;
+        } else if (tx.type === 'income') {
+          state.monthlyIncome += tx.amount;
+          state.totalBalance += tx.amount;
         }
+        state.savings = state.monthlyIncome - state.monthlyExpense;
+        state.lastFetchedAt = null;
+      })
+      .addCase(deleteTransaction.fulfilled, (state) => {
+        state.lastFetchedAt = null;
       });
   },
 });

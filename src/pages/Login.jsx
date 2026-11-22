@@ -1,31 +1,39 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'framer-motion';
 import { login, clearError } from '@/redux/slices/authSlice';
+import { loginSchema } from '@/schemas/auth';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import toastService from '@/services/toastService';
 
 export default function Login() {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((s) => s.auth);
-  const [form, setForm] = useState({ email: '', password: '' });
   const [showPw, setShowPw] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const onSubmit = async (values) => {
     dispatch(clearError());
     try {
-      const res = await dispatch(login(form)).unwrap();
+      const res = await dispatch(login(values)).unwrap();
       toastService.success(res?.message || 'Login successful!');
     } catch (err) {
-      toastService.error(err || 'Login failed');
+      toastService.error(err?.errorMessage || err);
     }
   };
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Left decorative panel */}
       <div className="hidden lg:flex flex-1 relative overflow-hidden bg-gradient-to-br from-blue-600/20 to-cyan-600/10 items-center justify-center">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMyMjIiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDE4aDJ2MmgtMnptMCA0aDJ2MmgtMnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30" />
         <motion.div
@@ -35,27 +43,25 @@ export default function Login() {
           className="text-center px-12 relative z-10"
         >
           <div className="w-24 h-24 rounded-3xl overflow-hidden shadow-2xl shadow-blue-500/30 border border-blue-500/30 bg-slate-900 mx-auto mb-6 p-1">
-            <img src="/logo.png" alt="FinTrack Logo" className="w-full h-full object-cover rounded-2xl" />
+            <img src="/logo.png" alt="MoneyMatrix Logo" className="w-full h-full object-cover rounded-2xl" />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-3">FinTrack</h1>
+          <h1 className="text-4xl font-bold text-white mb-3">MoneyMatrix</h1>
           <p className="text-lg text-slate-300">Your personal finance companion</p>
           <p className="text-sm text-slate-400 mt-2 max-w-sm mx-auto">Track expenses, manage banks, monitor subscriptions — all in one premium dashboard.</p>
         </motion.div>
       </div>
 
-      {/* Right form panel */}
       <div className="flex-1 flex items-center justify-center p-6">
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           className="w-full max-w-md"
         >
-          {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center">
               <span className="text-xl font-bold text-white">F</span>
             </div>
-            <span className="text-xl font-bold text-white">FinTrack</span>
+            <span className="text-xl font-bold text-white">MoneyMatrix</span>
           </div>
 
           <h2 className="text-2xl font-bold text-white mb-1">Welcome back</h2>
@@ -67,20 +73,23 @@ export default function Login() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
             <div>
               <label className="text-xs font-medium text-slate-400 mb-1.5 block">Email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  {...register('email')}
                   placeholder="you@example.com"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-card border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition"
-                  required
+                  className={`w-full pl-10 pr-4 py-3 rounded-xl bg-card border text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition ${
+                    errors.email ? 'border-red-500/50' : 'border-white/10'
+                  }`}
                 />
               </div>
+              {errors.email && (
+                <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
+              )}
             </div>
 
             <div>
@@ -89,11 +98,11 @@ export default function Login() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   type={showPw ? 'text' : 'password'}
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  {...register('password')}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-12 py-3 rounded-xl bg-card border border-white/10 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition"
-                  required
+                  className={`w-full pl-10 pr-12 py-3 rounded-xl bg-card border text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition ${
+                    errors.password ? 'border-red-500/50' : 'border-white/10'
+                  }`}
                 />
                 <button
                   type="button"
@@ -104,6 +113,9 @@ export default function Login() {
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {errors.password && (
+                <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+              )}
             </div>
 
             <button

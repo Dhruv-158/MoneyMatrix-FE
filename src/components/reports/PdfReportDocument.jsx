@@ -19,7 +19,7 @@ export default function PdfReportDocument({ data, activeTab, dateParam, user }) 
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-white text-sm">
               FT
             </div>
-            <span className="font-extrabold text-base tracking-tight text-white">FinTrack Enterprise</span>
+            <span className="font-extrabold text-base tracking-tight text-white">MoneyMatrix</span>
           </div>
           <div>
             <h1 className="text-2xl font-black tracking-tight text-white uppercase">Monthly Financial Statement</h1>
@@ -149,7 +149,7 @@ export default function PdfReportDocument({ data, activeTab, dateParam, user }) 
       <div className="pt-6 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-500 font-medium">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span>FinTrack Audited Report • System Verified</span>
+          <span>MoneyMatrix Report • System Verified</span>
         </div>
         <span>Page 1 of 1</span>
         <span>Generated: {new Date().toLocaleDateString()}</span>

@@ -1,13 +1,54 @@
 import { DEFAULT_CURRENCY, CURRENCY_LOCALE } from '@/constants';
 
-export const formatCurrency = (amount, currency = DEFAULT_CURRENCY) => {
-  if (amount === null || amount === undefined) return `${currency}0`;
-  return new Intl.NumberFormat(CURRENCY_LOCALE, {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount);
+const LANG_LOCALE = {
+  en: 'en-IN',
+  hi: 'hi-IN',
+};
+
+export const localeFromLanguage = (language = 'en') =>
+  LANG_LOCALE[language] || CURRENCY_LOCALE || 'en-IN';
+
+export const resolveMediaUrl = (path) => {
+  if (!path) return '';
+  if (/^https?:\/\//i.test(path)) return path;
+  const api = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const origin = api.replace(/\/api\/?$/, '');
+  return `${origin}${path.startsWith('/') ? path : `/${path}`}`;
+};
+
+/**
+ * @param {number} amount
+ * @param {string} [currencyCode] ISO code e.g. INR
+ * @param {{ symbol?: string, locale?: string, language?: string }} [opts]
+ */
+export const formatCurrency = (amount, currencyCode = 'INR', opts = {}) => {
+  if (amount === null || amount === undefined) {
+    const sym = opts.symbol || DEFAULT_CURRENCY;
+    return `${sym}0`;
+  }
+
+  const locale = opts.locale || localeFromLanguage(opts.language) || CURRENCY_LOCALE;
+  const code = currencyCode || 'INR';
+  const customSymbol = (opts.symbol || '').trim();
+
+  if (customSymbol) {
+    const num = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(Number(amount));
+    return `${customSymbol}${num}`;
+  }
+
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: code,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(Number(amount));
+  } catch {
+    return `${DEFAULT_CURRENCY}${Number(amount).toLocaleString(locale)}`;
+  }
 };
 
 export const formatNumber = (num) => {
@@ -18,16 +59,20 @@ export const formatNumber = (num) => {
   return num.toString();
 };
 
-export const formatDate = (date) => {
+export const formatDate = (date, language = 'en') => {
   if (!date) return '';
   const d = new Date(date);
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(localeFromLanguage(language), {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 };
 
-export const formatDateTime = (date) => {
+export const formatDateTime = (date, language = 'en') => {
   if (!date) return '';
   const d = new Date(date);
-  return d.toLocaleDateString('en-IN', {
+  return d.toLocaleDateString(localeFromLanguage(language), {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -41,62 +86,23 @@ export const getRelativeTime = (date) => {
   const now = new Date();
   const d = new Date(date);
   const diffMs = now - d;
-  const diffSecs = Math.floor(diffMs / 1000);
-  const diffMins = Math.floor(diffSecs / 60);
-  const diffHrs = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHrs / 24);
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffSecs < 60) return 'just now';
+  if (diffMins < 1) return 'Just now';
   if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHrs < 24) return `${diffHrs}h ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
   return formatDate(date);
 };
 
-export const getInitials = (name) => {
-  if (!name) return 'U';
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-};
-
-export const truncate = (str, n = 30) => {
+export const truncate = (str, len = 50) => {
   if (!str) return '';
-  return str.length > n ? str.substring(0, n) + '...' : str;
+  return str.length > len ? `${str.slice(0, len)}…` : str;
 };
 
-export const getTransactionColor = (type) => {
-  switch (type) {
-    case 'income': return 'text-success';
-    case 'expense': return 'text-danger';
-    case 'transfer': return 'text-primary';
-    default: return 'text-foreground';
-  }
-};
-
-export const getStatusColor = (status) => {
-  switch (status) {
-    case 'active':
-    case 'paid':
-    case 'completed': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-    case 'pending': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-    case 'overdue':
-    case 'cancelled':
-    case 'failed': return 'bg-red-500/10 text-red-400 border-red-500/20';
-    case 'inactive': return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
-    default: return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-  }
-};
-
-export const generateId = () => {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-};
-
-export const getCurrentMonth = () => {
-  const now = new Date();
-  return { month: now.getMonth(), year: now.getFullYear() };
-};
-
-export const getMonthRange = (month, year) => {
-  const start = new Date(year, month, 1);
-  const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
-  return { start, end };
+export const capitalize = (str) => {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
 };
